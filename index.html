@@ -44,7 +44,9 @@ label.lbl{display:block;color:var(--mu);font-size:14px;margin:10px 0 4px}
 .day.today{border-color:var(--ac)}.day.rest{opacity:.5}
 .ex h3{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 .tag{font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;background:#3b2a0b;color:var(--wa);margin-left:6px;vertical-align:middle}
-.tag.main{background:#0f2f4a;color:var(--bl)}.tag.cardio{background:#12351f;color:var(--ac)}
+.tag.main{background:#0f2f4a;color:var(--bl)}.tag.cardio{background:#12351f;color:var(--ac)}.tag.abs{background:#3b1f4a;color:#e9d5ff}
+.abshead{display:flex;align-items:center;gap:8px;margin:18px 0 6px;padding:10px 12px;border-radius:14px;background:#241833;border:1px solid #4c2a66}
+.abshead b{font-size:16px}.abshead .muted{flex:1}
 .last{color:var(--mu);font-size:14px;margin:4px 0}
 .hint{border-radius:10px;padding:8px 10px;font-size:14px;font-weight:600;margin:6px 0}
 .warn{background:#3b2a0b;color:#fcd34d}.up{background:#12351f;color:#86efac}
@@ -128,14 +130,19 @@ details summary{font-weight:700;font-size:17px;min-height:48px;display:flex;alig
 <script>
 'use strict';
 const TZ='Australia/Sydney', KEY='workoutTracker.v1';
-function ex(name,sets,reps,o){o=o||{};return {name,sets,reps,press:!!o.press,main:!!o.main,cardio:!!o.cardio};}
+function ex(name,sets,reps,o){o=o||{};return {name,sets,reps,press:!!o.press,main:!!o.main,cardio:!!o.cardio,abs:!!o.abs};}
+const ABS_UPPER=[ex('Dead bug',2,'8 each side',{abs:1}),ex('Cable crunch',2,'12',{abs:1}),ex('Side plank (knees)',2,'20-30s each side',{abs:1})];
+const ABS_LOWER=[ex('Bird dog',2,'8 each side',{abs:1}),ex('McGill curl-up',2,'8-10',{abs:1}),ex('Side plank (knees)',2,'20s each side',{abs:1})];
+const ABS_SUNDAY=[ex('Dead bug',2,'8 each side',{abs:1}),ex('Side plank (knees)',2,'20s each side',{abs:1})];
 const DEFAULT_PLAN=[
- {id:'upperA',name:'Upper A',exercises:[ex('Chest-supported row',4,'8-10'),ex('Lat pulldown (neutral grip)',4,'8-10'),ex('Neutral-grip DB press (low incline)',3,'10-12',{press:1}),ex('Face pull',3,'15'),ex('Cable lateral raise',3,'15',{press:1}),ex('Hammer curl',3,'12'),ex('Band external rotation',2,'15')]},
- {id:'lowerA',name:'Lower A',exercises:[ex('Hack squat',4,'6-8',{main:1}),ex('Romanian deadlift',3,'8'),ex('Leg press',3,'10-12'),ex('Lying leg curl',3,'12'),ex('Standing calf raise',4,'12-15'),ex('Dead bug',3,'10')]},
- {id:'upperB',name:'Upper B',exercises:[ex('Pull-ups / assisted',4,'AMRAP'),ex('Seated cable row',3,'12'),ex('Machine chest press',3,'12',{press:1}),ex('Landmine press',3,'10 each side',{press:1}),ex('Rear delt fly',3,'15'),ex('Cable curl',3,'12'),ex('Rope pushdown',2,'15',{press:1})]},
- {id:'lowerB',name:'Lower B',exercises:[ex('Trap bar deadlift',3,'5-6',{main:1}),ex('Bulgarian split squat',3,'10 each'),ex('Hip thrust',3,'10-12'),ex('Leg extension',3,'15'),ex('Seated calf raise',3,'15'),ex('Hanging knee raise',3,'12')]},
- {id:'sunday',name:'Sunday Pull & Conditioning',exercises:[ex('Single-arm DB row',3,'10'),ex('Straight-arm pulldown',3,'12'),ex('Face pull',3,'15'),ex('Hammer curl',3,'12'),ex('Intervals',1,'20 min',{cardio:1})]}
+ {id:'upperA',name:'Upper A',exercises:[ex('Chest-supported row',4,'8-10'),ex('Lat pulldown (neutral grip)',4,'8-10'),ex('Neutral-grip DB press (low incline)',3,'10-12',{press:1}),ex('Face pull',3,'15'),ex('Cable lateral raise',3,'15',{press:1}),ex('Hammer curl',3,'12'),ex('Band external rotation',2,'15'),...ABS_UPPER]},
+ {id:'lowerA',name:'Lower A',exercises:[ex('Hack squat',4,'6-8',{main:1}),ex('Romanian deadlift',3,'8'),ex('Leg press',3,'10-12'),ex('Lying leg curl',3,'12'),ex('Standing calf raise',4,'12-15'),...ABS_LOWER]},
+ {id:'upperB',name:'Upper B',exercises:[ex('Pull-ups / assisted',4,'AMRAP'),ex('Seated cable row',3,'12'),ex('Machine chest press',3,'12',{press:1}),ex('Landmine press',3,'10 each side',{press:1}),ex('Rear delt fly',3,'15'),ex('Cable curl',3,'12'),ex('Rope pushdown',2,'15',{press:1}),...ABS_UPPER]},
+ {id:'lowerB',name:'Lower B',exercises:[ex('Trap bar deadlift',3,'5-6',{main:1}),ex('Bulgarian split squat',3,'10 each'),ex('Hip thrust',3,'10-12'),ex('Leg extension',3,'15'),ex('Seated calf raise',3,'15'),...ABS_LOWER]},
+ {id:'sunday',name:'Sunday Pull & Conditioning',exercises:[ex('Single-arm DB row',3,'10'),ex('Straight-arm pulldown',3,'12'),ex('Face pull',3,'15'),ex('Hammer curl',3,'12'),ex('Intervals',1,'20 min',{cardio:1}),...ABS_SUNDAY]}
 ];
+const ABS_BY_PLAN={upperA:ABS_UPPER,upperB:ABS_UPPER,lowerA:ABS_LOWER,lowerB:ABS_LOWER,sunday:ABS_SUNDAY};
+const ABS_NOTE='Abs finisher · ~5–8 min · stop if lower-back pain increases; skip heavy loaded spinal flexion on flare days (use dead bug / bird dog / side plank instead of crunches).';
 function mi(name,dose,sec,cue){return {name,dose,sec,cue};}
 const DEFAULT_ROUTINES=[
  {id:'posture',name:'Posture & mobility',hint:'Daily · ~10 min',items:[
@@ -172,11 +179,12 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function defaults(){return {version:1,plan:clone(DEFAULT_PLAN),sessions:[],cardio:[],body:[],active:null,routines:clone(DEFAULT_ROUTINES),mobLog:{},backPain:{},scans:[],cues:{},settings:{rest:90,restMain:120,lastExport:null}};}
 function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.assign(defaults().settings,s.settings||{});
- ['sessions','cardio','body'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[]}); if(!Array.isArray(s.plan)||!s.plan.length)s.plan=clone(DEFAULT_PLAN); if(!Array.isArray(s.routines)||!s.routines.length)s.routines=clone(DEFAULT_ROUTINES);else{const have=new Set(s.routines.map(r=>r.id));DEFAULT_ROUTINES.forEach(d=>{if(!have.has(d.id))s.routines.push(clone(d));});}
+ ['sessions','cardio','body'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[]}); if(!Array.isArray(s.plan)||!s.plan.length)s.plan=clone(DEFAULT_PLAN);else if(mergeAbsIntoPlan(s.plan))s._absMerged=1; if(!Array.isArray(s.routines)||!s.routines.length)s.routines=clone(DEFAULT_ROUTINES);else{const have=new Set(s.routines.map(r=>r.id));DEFAULT_ROUTINES.forEach(d=>{if(!have.has(d.id))s.routines.push(clone(d));});}
  if(!Array.isArray(s.scans))s.scans=[];
  ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}}); return s;}
 function load(){try{const r=localStorage.getItem(KEY);if(r)return normalize(JSON.parse(r));}catch(e){console.error(e)}return defaults();}
 let S=load();
+if(S._absMerged){delete S._absMerged;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('⚠ Could not save: '+e.message)}}
 
 // ---- dates (Australia/Sydney) ----
@@ -194,6 +202,13 @@ const fmtKeyShort=k=>new Date(keyT(k)).toLocaleDateString('en-AU',{timeZone:'UTC
 
 // ---- helpers ----
 const planById=id=>S.plan.find(p=>p.id===id);
+function mergeAbsIntoPlan(plan){let changed=false;plan.forEach(p=>{const block=ABS_BY_PLAN[p.id];if(!block||!Array.isArray(p.exercises))return;
+  if(p.exercises.some(e=>e.abs))return;
+  if(p.id==='lowerA')p.exercises=p.exercises.filter(e=>e.name!=='Dead bug');
+  if(p.id==='lowerB')p.exercises=p.exercises.filter(e=>e.name!=='Hanging knee raise');
+  p.exercises=p.exercises.concat(clone(block));changed=true;
+ });return changed;}
+
 function topReps(r){const m=String(r||'').match(/(\d+)\s*(?:-\s*(\d+))?/);if(!m||/amrap|min/i.test(r))return 0;return +(m[2]||m[1]);}
 const doneSets=e=>(e.sets||[]).filter(s=>s.done);
 const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:null};
@@ -268,7 +283,8 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div><div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done</div>
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
- s.exercises.forEach((e,i)=>h+=exCard(e,i));
+ let absShown=false;
+ s.exercises.forEach((e,i)=>{if(e.abs&&!absShown){absShown=true;h+=`<div class="abshead"><b>🧘 Abs</b><span class="muted">${ABS_NOTE}</span></div>`;}h+=exCard(e,i);});
  h+=`<button class="btn wide" data-a="addEx">+ Add exercise</button>
  <label class="lbl">Session notes</label><textarea data-f="sNotes" rows="3" placeholder="How did it feel? Sleep, energy, shoulder/elbow…">${esc(s.notes)}</textarea>
  <div class="row" style="margin-top:14px"><button class="btn danger" data-a="discard">Discard</button><button class="btn primary grow" data-a="finish">✓ Finish &amp; save</button></div>`;
@@ -279,7 +295,7 @@ function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
   if(e.press&&last.pain!=null&&last.pain>3)hints+=`<div class="hint warn">⚠ Pain was ${last.pain}/10 last time — keep weight same or lighter</div>`;
   else if(!e.cardio&&hitTop(last))hints+=`<div class="hint up">⬆ Go up in weight — you hit the top of the rep range on all sets</div>`;
  }else hints+=`<div class="last">No previous log</div>`;
- const tags=(e.main?'<span class="tag main">MAIN</span>':'')+(e.press?'<span class="tag">PRESS</span>':'')+(e.cardio?'<span class="tag cardio">CARDIO</span>':'');
+ const tags=(e.main?'<span class="tag main">MAIN</span>':'')+(e.abs?'<span class="tag abs">ABS</span>':'')+(e.press?'<span class="tag">PRESS</span>':'')+(e.cardio?'<span class="tag cardio">CARDIO</span>':'');
  let h=`<div class="card ex" id="ex${i}"><h3><span><button class="linkbtn" data-a="demo" data-n="${esc(e.name)}">${esc(e.name)}</button>${tags}</span><span class="muted" style="white-space:nowrap">${e.target.sets}×${esc(e.target.reps)}</span></h3>${hints}`;
  if(e.cardio){h+=`<div class="set ${e.done?'done':''}" style="grid-template-columns:1fr 60px"><input inputmode="numeric" type="number" data-f="min" data-i="${i}" value="${esc(e.minutes)}" placeholder="${topReps(e.target.reps)||parseInt(e.target.reps)||20} min"><button class="tick" data-a="tickC" data-i="${i}">✓</button></div>`;}
  else{const ls=last?doneSets(last):[];
@@ -295,7 +311,7 @@ function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
   <button class="btn sm" data-a="exNote" data-i="${i}">📝${e.notes?' ✓':''}</button><button class="btn sm" data-a="exMove" data-i="${i}" aria-label="move up">↑</button><button class="btn sm danger" data-a="delEx" data-i="${i}">✕</button></div>`;
  if(e.notes||e._showNote)h+=`<textarea data-f="exNotes" data-i="${i}" rows="2" style="margin-top:8px" placeholder="Exercise notes (seat height, grip…)">${esc(e.notes)}</textarea>`;
  return h+'</div>';}
-function mkEx(t){const e={name:t.name,press:!!t.press,main:!!t.main,cardio:!!t.cardio,target:{sets:Math.max(1,parseInt(t.sets)||1),reps:String(t.reps||'')},notes:'',pain:null};
+function mkEx(t){const e={name:t.name,press:!!t.press,main:!!t.main,cardio:!!t.cardio,abs:!!t.abs,target:{sets:Math.max(1,parseInt(t.sets)||1),reps:String(t.reps||'')},notes:'',pain:null};
  if(e.cardio){e.minutes='';e.done=false;}else e.sets=Array.from({length:e.target.sets},()=>({w:'',r:'',done:false}));return e;}
 function startSession(id){if(S.active&&!confirm('A session is already in progress. Discard it and start a new one?'))return;
  const p=planById(id);S.active={id:uid(),planId:p?p.id:'custom',name:p?p.name:'Custom',start:Date.now(),notes:'',exercises:p?p.exercises.map(mkEx):[]};
@@ -305,9 +321,10 @@ function exModal(target){const names=allExerciseNames();
  <div class="grid2"><div><label class="lbl">Sets</label><input id="mSets" type="number" inputmode="numeric" value="3"></div><div><label class="lbl">Reps / target</label><input id="mReps" value="10-12"></div></div>
  <label class="chk"><input type="checkbox" id="mPress"> Pressing exercise (track pain)</label>
  <label class="chk"><input type="checkbox" id="mMain"> Main lift (${S.settings.restMain}s rest)</label>
+ <label class="chk"><input type="checkbox" id="mAbs"> Abs finisher</label>
  <label class="chk"><input type="checkbox" id="mCardio"> Cardio (log minutes)</label>
  <div class="row"><button class="btn grow" data-a="closeModal">Cancel</button><button class="btn primary grow" data-a="exModalOk" data-t="${target}">Add</button></div>`);
- const n=document.getElementById('mName');n.addEventListener('change',()=>{const t=findTemplate(n.value);if(t){mSets.value=t.sets;mReps.value=t.reps;mPress.checked=t.press;mMain.checked=t.main;mCardio.checked=t.cardio;}});}
+ const n=document.getElementById('mName');n.addEventListener('change',()=>{const t=findTemplate(n.value);if(t){mSets.value=t.sets;mReps.value=t.reps;mPress.checked=t.press;mMain.checked=t.main;mAbs.checked=t.abs;mCardio.checked=t.cardio;}});}
 function findTemplate(name){const n=name.trim().toLowerCase();for(const p of S.plan)for(const e of p.exercises)if(e.name.toLowerCase()===n)return e;return null;}
 
 // ---- rest timer ----
@@ -381,11 +398,11 @@ function vSettings(){const le=S.settings.lastExport;
   <div class="muted">${S.sessions.length} sessions · ${S.cardio.length} cardio · ${S.body.length} weigh-ins · ${S.scans.length} scans${PH?' · '+PH.length+' photos':''}. Importing replaces data; photos in a backup are merged.</div></div>
   <h2>Rest timer</h2><div class="card grid2"><div><label class="lbl">Default (s)</label><input type="number" inputmode="numeric" data-f="rest" data-k="rest" value="${S.settings.rest}"></div>
   <div><label class="lbl">Main lifts (s)</label><input type="number" inputmode="numeric" data-f="rest" data-k="restMain" value="${S.settings.restMain}"></div></div>
-  <h2>Plan</h2><div class="muted">Changes save automatically and apply to new sessions. P = pressing (pain tracking), M = main lift, C = cardio.</div>`;
+  <h2>Plan</h2><div class="muted">Changes save automatically and apply to new sessions. P = pressing, M = main lift, C = cardio, A = abs finisher. Missing abs blocks are auto-added once for older saved plans; use Reset plan to fully restore defaults.</div>`;
  S.plan.forEach((p,pi)=>{h+=`<details class="card"><summary>${esc(p.name)} <span class="muted" style="margin-left:6px">(${p.exercises.length})</span></summary>
   <label class="lbl">Session name</label><input data-f="plName" data-p="${pi}" value="${esc(p.name)}">`;
   p.exercises.forEach((e,xi)=>{const a=`data-p="${pi}" data-x="${xi}"`;h+=`<div class="pe"><input data-f="pl" data-k="name" ${a} value="${esc(e.name)}" aria-label="name"><input data-f="pl" data-k="sets" ${a} type="number" inputmode="numeric" value="${e.sets}" aria-label="sets"><input data-f="pl" data-k="reps" ${a} value="${esc(e.reps)}" aria-label="reps"></div>
-   <div class="pe2">${['press','main','cardio'].map(k=>`<label class="chk"><input type="checkbox" data-f="plc" data-k="${k}" ${a} ${e[k]?'checked':''}>${k[0].toUpperCase()}</label>`).join('')}<span class="grow"></span>
+   <div class="pe2">${['press','main','cardio','abs'].map(k=>`<label class="chk"><input type="checkbox" data-f="plc" data-k="${k}" ${a} ${e[k]?'checked':''}>${k[0].toUpperCase()}</label>`).join('')}<span class="grow"></span>
    <button class="btn sm" data-a="demo" data-n="${esc(e.name)}" aria-label="demo">ⓘ</button><button class="btn sm" data-a="plMove" ${a}>↑</button><button class="btn sm danger" data-a="plDel" ${a}>✕</button></div>`;});
   h+=`<button class="btn wide" data-a="plAdd" data-p="${pi}">+ Add exercise</button></details>`;});
  h+=`<button class="btn wide" data-a="plReset">Reset plan to default</button>
@@ -432,7 +449,7 @@ const A={
  addEx:()=>exModal('session'),
  closeModal,
  exModalOk:t=>{const name=document.getElementById('mName').value.trim();if(!name){toast('Enter a name');return;}
-  const tpl={name,sets:document.getElementById('mSets').value,reps:document.getElementById('mReps').value,press:mPress.checked,main:mMain.checked,cardio:mCardio.checked};
+  const tpl={name,sets:document.getElementById('mSets').value,reps:document.getElementById('mReps').value,press:mPress.checked,main:mMain.checked,abs:mAbs.checked,cardio:mCardio.checked};
   if(t.dataset.t==='session'){S.active.exercises.push(mkEx(tpl));}else{const p=S.plan[+t.dataset.t];tpl.sets=parseInt(tpl.sets)||3;p.exercises.push(tpl);}
   save();closeModal();render();if(t.dataset.t==='session')setTimeout(()=>{const c=document.querySelectorAll('.ex');c.length&&c[c.length-1].scrollIntoView({behavior:'smooth'})},50);},
  discard:()=>{if(confirm('Discard this session? Nothing will be saved.')){S.active=null;save();stopTimer();wake(false);go('home');}},
@@ -680,6 +697,7 @@ const DEMOS=[
  {n:['Rear delt fly','Reverse fly'],img:'Cable_Rear_Delt_Fly',approx:'Cable rear-delt fly shown (reverse pec-deck works too)',s:'Cables crossed at shoulder height (or pec-deck facing the pad), slight elbow bend.',m:'Open arms out and back in a wide arc, squeeze upper back, return slowly.',x:'Using momentum; bending elbows to turn it into a row; shrugging.',w:'Light and controlled — great for posture.'},
  {n:['Cable curl','Biceps cable curl'],img:'Standing_Biceps_Cable_Curl',s:'Low pulley, straight or EZ bar, elbows by your sides.',m:'Curl up without moving the elbows, squeeze, lower fully and slowly.',x:'Leaning back; elbows moving forward; letting the stack slam.',w:'Right elbow: an EZ/rope handle may feel better than a straight bar; avoid snapping into lockout.'},
  {n:['Rope pushdown','Triceps pushdown'],img:'Triceps_Pushdown_-_Rope_Attachment',s:'High pulley, rope, elbows pinned to your sides, slight forward lean.',m:'Push down and spread the rope at the bottom, return slowly to ~90°.',x:'Elbows flaring; leaning over the rope; using body weight.',w:'Right elbow bursitis: PRESS-marked for pain. Keep it light, stop before painful lockout; skip if pain >3.'},
+ {n:['Cable crunch','Kneeling cable crunch','Rope crunch'],img:'Cable_Crunch',approx:'Kneeling cable crunch shown — hanging knee raise is a fine swap on upper days',s:'High pulley, rope, kneel facing the stack, hands by temples, hips locked.',m:'Crunch ribs toward hips (not hips toward floor), pause, return slowly without yanking.',x:'Pulling with the arms; hinging at the hips; using momentum; going too heavy.',w:'Low back: stop immediately if pain increases. On a flare day skip loaded flexion — swap for Dead bug or Side plank. Keep the range small and controlled.'},
  {n:['Trap bar deadlift','Hex bar deadlift'],img:'Trap_Bar_Deadlift',s:'Stand in the centre, feet hip-width, grip handles, hips down, chest up, brace hard.',m:'Push the floor away, stand tall squeezing glutes, lower by sitting hips back.',x:'Rounding the back; hips shooting up first; leaning back at the top.',w:'Low back: trap bar is the back-friendliest deadlift. Use high handles if needed and stop sets before form breaks.'},
  {n:['Bulgarian split squat','Split squat'],img:'One_Leg_Barbell_Squat',approx:'Barbell version shown — dumbbells at your sides are easier on shoulders & back',s:'Rear foot on a bench, front foot far enough forward that the knee stays over mid-foot.',m:'Lower straight down until the back knee nearly touches, drive up through the front heel.',x:'Front foot too close; torso collapsing; knee caving inward.',w:'Hold DBs (or nothing) instead of a barbell to spare the left shoulder. A slight forward lean is fine — keep spine neutral.'},
  {n:['Hip thrust'],img:'Barbell_Hip_Thrust',s:'Upper back on bench edge, bar (padded) over hips, feet flat, shins vertical at the top.',m:'Drive through heels, lift hips until body is flat, chin tucked, squeeze glutes 1 s, lower.',x:'Arching the lower back at the top; feet too far/close; pushing through toes.',w:'Low back: finish with glutes, not by arching — ribs down, tuck pelvis slightly at the top.'},
@@ -693,7 +711,7 @@ const DEMOS=[
  {n:['Cat-cow','Cat cow'],img:'Cat_Stretch',approx:'"Cat" (rounded) and neutral positions shown — add a gentle arch for "cow"',s:'Hands under shoulders, knees under hips.',m:'Exhale and round the spine up (cat), inhale and gently let the belly drop and chest open (cow). Slow and segmental.',x:'Forcing the arch; rushing.',w:'Low back: keep the "cow" arch gentle and pain-free.'},
  {n:['Kneeling hip flexor stretch','Hip flexor stretch'],img:'Kneeling_Hip_Flexor',s:'Half-kneel with a pad under the back knee, torso tall.',m:'Tuck the pelvis (squeeze the back-leg glute), then shift forward slightly until you feel the front of the hip.',x:'Arching the lower back instead of tucking; lunging too far.',w:'Tight hip flexors often feed lower back pain — the pelvic tuck is the key.'},
  {n:['Child\'s pose','Childs pose'],img:'Childs_Pose',s:'Kneel, big toes together, knees wide.',m:'Sit hips back toward heels, arms forward or by your sides, breathe slowly into your back.',x:'Forcing hips down; holding breath.',w:'Left shoulder: rest arms by your sides instead of overhead if reaching forward hurts.'},
- {n:['Glute bridge'],img:'Butt_Lift_Bridge',s:'On your back, knees bent, feet flat hip-width, arms by sides.',m:'Drive through heels, lift hips until knees-hips-shoulders line up, squeeze glutes, lower slowly.',x:'Arching the lower back; pushing through toes; hamstrings cramping (feet too far).',w:'Low back: ribs down, lift with glutes, stop before the back arches.'},
+ {n:['Glute bridge','Glute bridge march'],img:'Butt_Lift_Bridge',approx:'Two-leg glute bridge shown — for a march, hold the top and slowly lift one foot a few cm then switch',s:'On your back, knees bent, feet flat hip-width, arms by sides.',m:'Drive through heels, lift hips until knees-hips-shoulders line up, squeeze glutes, lower slowly.',x:'Arching the lower back; pushing through toes; hamstrings cramping (feet too far).',w:'Low back: ribs down, lift with glutes, stop before the back arches.'},
  {n:['Side plank (knees)','Side plank','Side bridge'],img:'Side_Bridge',approx:'Side bridge shown — bend knees for the easier version',s:'Lie on your side, elbow directly under shoulder, knees bent (easier) or legs straight.',m:'Lift hips so the body forms a straight line, hold, breathe.',x:'Hips sagging or piking; elbow not under shoulder; shrugging.',w:'Left shoulder bursitis: if lying on the left elbow hurts, do that side against a wall/bench (standing incline) or skip it.'},
  {n:['Bodyweight squats','Bodyweight squat','Air squat'],img:'Bodyweight_Squat',s:'Feet shoulder-width, toes slightly out, arms forward for balance.',m:'Sit down between the heels, chest up, stand up through mid-foot.',x:'Heels lifting; knees caving; rounding.',w:'Warm-up pace — pain-free depth only.'},
  // ---- inline SVG diagrams ----

@@ -7,6 +7,7 @@ Original files: https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/
 Modifications: resized to max 600px, re-compressed as JPEG (quality 68). Downloaded 2026-09-29.
 
 App exercise  ->  free-exercise-db id  (note)
+  Cable crunch  ->  Cable_Crunch
   Hack squat  ->  Hack_Squat  (Machine hack squat — Goblet squat is the free-weight alternative)
   Chest-supported row  ->  Lying_T-Bar_Row  (Lying T-bar row (chest-supported) shown)
   Lat pulldown (neutral grip)  ->  V-Bar_Pulldown  (Close/neutral-grip (V-bar) pulldown shown)
