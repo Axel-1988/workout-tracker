@@ -172,7 +172,7 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function defaults(){return {version:1,plan:clone(DEFAULT_PLAN),sessions:[],cardio:[],body:[],active:null,routines:clone(DEFAULT_ROUTINES),mobLog:{},backPain:{},scans:[],cues:{},settings:{rest:90,restMain:120,lastExport:null}};}
 function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.assign(defaults().settings,s.settings||{});
- ['sessions','cardio','body'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[]}); if(!Array.isArray(s.plan)||!s.plan.length)s.plan=clone(DEFAULT_PLAN); if(!Array.isArray(s.routines)||!s.routines.length)s.routines=clone(DEFAULT_ROUTINES);
+ ['sessions','cardio','body'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[]}); if(!Array.isArray(s.plan)||!s.plan.length)s.plan=clone(DEFAULT_PLAN); if(!Array.isArray(s.routines)||!s.routines.length)s.routines=clone(DEFAULT_ROUTINES);else{const have=new Set(s.routines.map(r=>r.id));DEFAULT_ROUTINES.forEach(d=>{if(!have.has(d.id))s.routines.push(clone(d));});}
  if(!Array.isArray(s.scans))s.scans=[];
  ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}}); return s;}
 function load(){try{const r=localStorage.getItem(KEY);if(r)return normalize(JSON.parse(r));}catch(e){console.error(e)}return defaults();}
@@ -266,7 +266,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const nDone=s.exercises.reduce((a,e)=>a+(e.cardio?(e.done?1:0):doneSets(e).length),0);
  const wu=/^lower/i.test(s.planId)?'wuLower':'wuUpper',wp=routineProg(wu,todayKey());
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div><div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done</div>
- ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}"><span>🔥 ${esc(routineById(wu).name)}</span><small>${wp.complete?'done ✓':wp.n+'/'+wp.of+' ›'}</small></button>`:''}`;
+ ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
  s.exercises.forEach((e,i)=>h+=exCard(e,i));
  h+=`<button class="btn wide" data-a="addEx">+ Add exercise</button>
@@ -412,7 +412,7 @@ async function doImport(text){let d;try{d=JSON.parse(text);}catch(e){toast('⚠ 
 
 // ---- actions ----
 const A={
- nav:t=>{let v=t.dataset.v;if(v==='train')v=S.active?'session':'home';go(v);},
+ nav:t=>{let v=t.dataset.v;if(v==='train'){v=S.active?'session':'home';mobFromSession=false;}else if(v!=='mobility')mobFromSession=false;go(v);},
  home:()=>go('home'),
  start:t=>startSession(t.dataset.id),
  logCardio:()=>{const type=document.getElementById('cType').value.trim()||'Cardio',m=num(document.getElementById('cMin').value),d=document.getElementById('cDate').value||todayKey();
@@ -459,7 +459,7 @@ const A={
  plReset:()=>{if(confirm('Reset the plan to the default program? (History is kept.)')){S.plan=clone(DEFAULT_PLAN);save();render();toast('Plan reset');}},
  clear:()=>modal(`<h2 style="margin-top:0;color:var(--da)">Clear all data?</h2><p>This deletes all sessions, cardio, body weight and plan edits from this device. Export a backup first!</p><label class="lbl">Type DELETE to confirm</label><input id="clrTa" autocomplete="off" autocapitalize="characters"><div class="row"><button class="btn grow" data-a="closeModal">Cancel</button><button class="btn danger grow" data-a="clearOk">Delete everything</button></div>`),
  clearOk:()=>{if(document.getElementById('clrTa').value.trim().toUpperCase()!=='DELETE'){toast('Type DELETE to confirm');return;}localStorage.removeItem(KEY);S=defaults();save();idbClear().catch(()=>{});PH=null;stopTimer();closeModal();toast('All data cleared');go('home');},
- mobGo:t=>{mobSel=t.dataset.r;go('mobility');},
+ mobGo:t=>{const id=t.dataset.r;if(!routineById(id)){toast('Warm-up routine missing — reset mobility routines in Settings');return;}mobSel=id;mobFromSession=!!S.active;go('mobility');requestAnimationFrame(()=>{const chip=document.querySelector('.chips [data-r="'+id+'"]');if(chip)chip.scrollIntoView({inline:'center',block:'nearest',behavior:'instant'});const list=document.getElementById('mobList');if(list)list.scrollIntoView({behavior:'smooth',block:'start'});});},
  mobSel:t=>{mobSel=t.dataset.r;render();},
  mobTick:t=>{mobToggle(t.dataset.r,+t.dataset.x);render();},
  mobAll:t=>{const r=routineById(t.dataset.r),e=mobEntry(t.dataset.r,todayKey(),true);e.d=r.items.map(i=>i.name);e.c=true;save();render();toast('✓ '+r.name+' complete');},
@@ -514,7 +514,7 @@ document.addEventListener('change',e=>{const t=e.target,f=t.dataset.f;
 window.addEventListener('storage',e=>{if(e.key===KEY){S=load();render();}});
 
 // ---- MOBILITY ----
-let mobSel=null;
+let mobSel=null,mobFromSession=false;
 const routineById=id=>S.routines.find(r=>r.id===id);
 function mobEntry(rid,k,create){if(!S.mobLog[k]){if(!create)return null;S.mobLog[k]={};}const L=S.mobLog[k];if(!L[rid]){if(!create)return null;L[rid]={d:[],c:false};}return L[rid];}
 function routineProg(rid,k){const r=routineById(rid),e=mobEntry(rid,k,false),d=e?e.d:[];const of=r?r.items.length:0,n=r?r.items.filter(i=>d.includes(i.name)).length:0;return {n,of,complete:!!(e&&e.c)};}
@@ -526,13 +526,14 @@ function suggestedRoutine(){const p=SCHEDULE[wday(Date.now())];if(!routineProg('
 function vMobility(){const tk=todayKey();if(!mobSel||!routineById(mobSel))mobSel=suggestedRoutine();if(!routineById(mobSel))mobSel=S.routines[0]&&S.routines[0].id;
  const st=streak('posture'),bc=Array.from({length:7},(_,i)=>keyAdd(tk,-i)).filter(k=>{const e=mobEntry('back',k,false);return e&&e.c}).length;
  let h=`<h1>Mobility &amp; posture</h1><div class="muted">Pain-free range only · no loaded overhead or painful shoulder stretches</div>
+ ${S.active&&mobFromSession?`<button class="btn primary wide" data-a="nav" data-v="train">‹ Back to ${esc(S.active.name)} session</button>`:S.active?`<button class="btn wide" data-a="nav" data-v="train">‹ Resume ${esc(S.active.name)}</button>`:''}
  <div class="grid2"><div class="card"><div class="muted">Posture streak</div><div class="stat">🔥 ${st}<span class="muted"> day${st===1?'':'s'}</span></div></div>
  <div class="card"><div class="muted">Back care (7 days)</div><div class="stat">${bc}<span class="muted">/7</span></div></div></div>
  <div class="card"><div class="muted">Last 14 days — posture routine</div><div class="dots">${Array.from({length:14},(_,i)=>{const k=keyAdd(tk,i-13),pr=routineProg('posture',k);return `<i class="${pr.complete?'f':pr.n?'p':''} ${k===tk?'t':''}" title="${k}"></i>`}).join('')}</div></div>
  <div class="chips">${S.routines.map(r=>{const pr=routineProg(r.id,tk);return `<button class="btn ${r.id===mobSel?'on':''}" data-a="mobSel" data-r="${r.id}">${pr.complete?'✓ ':''}${esc(r.name)} ${pr.complete?'':`<small class="muted">${pr.n}/${pr.of}</small>`}</button>`}).join('')}</div>`;
  const r=routineById(mobSel);
  if(r){const e=mobEntry(r.id,tk,false),d=e?e.d:[],pr=routineProg(r.id,tk);
-  h+=`<div class="card"><div class="hrow"><div><h3>${esc(r.name)}</h3><div class="muted">${esc(r.hint||'')}</div></div><div class="stat" style="font-size:20px">${pr.n}/${pr.of}</div></div>`;
+  h+=`<div class="card" id="mobList"><div class="hrow"><div><h3>${esc(r.name)}</h3><div class="muted">${esc(r.hint||'')}</div></div><div class="stat" style="font-size:20px">${pr.n}/${pr.of}</div></div>`;
   r.items.forEach((it,x)=>{const dn=d.includes(it.name);h+=`<div class="mi ${dn?'done':''}"><button class="tick" data-a="mobTick" data-r="${r.id}" data-x="${x}" aria-label="done">✓</button>
    <div class="grow"><button class="linkbtn" data-a="demo" data-n="${esc(it.name)}"><b>${esc(it.name)}</b></button> <span class="muted">· ${esc(it.dose)}</span><div class="cue">${esc(it.cue||'')}</div></div>${it.sec?`<button class="btn" data-a="rest" data-s="${it.sec}">⏱ ${it.sec>=60&&it.sec%60===0?it.sec/60+'m':it.sec+'s'}</button>`:''}</div>`;});
   h+=`<div class="row"><button class="btn sm" data-a="mobReset" data-r="${r.id}">Reset today</button><button class="btn primary grow" data-a="mobAll" data-r="${r.id}">✓ Mark all done</button></div></div>`;}
