@@ -7,6 +7,7 @@ Original files: https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/
 Modifications: resized to max 600px, re-compressed as JPEG (quality 68). Downloaded 2026-09-29.
 
 App exercise  ->  free-exercise-db id  (note)
+  Hack squat  ->  Hack_Squat  (Machine hack squat — Goblet squat is the free-weight alternative)
   Chest-supported row  ->  Lying_T-Bar_Row  (Lying T-bar row (chest-supported) shown)
   Lat pulldown (neutral grip)  ->  V-Bar_Pulldown  (Close/neutral-grip (V-bar) pulldown shown)
   Neutral-grip DB press (low incline)  ->  Hammer_Grip_Incline_DB_Bench_Press  (Hammer-grip incline DB press shown — use a LOW incline (15–30°))
@@ -14,7 +15,6 @@ App exercise  ->  free-exercise-db id  (note)
   Cable lateral raise  ->  Cable_Seated_Lateral_Raise  (Cable lateral raise (two-handle version) shown — one arm at a time is fine)
   Hammer curl  ->  Hammer_Curls
   Band external rotation  ->  External_Rotation_with_Band
-  Back squat  ->  Barbell_Squat
   Romanian deadlift  ->  Romanian_Deadlift
   Leg press  ->  Leg_Press
   Lying leg curl  ->  Lying_Leg_Curls
