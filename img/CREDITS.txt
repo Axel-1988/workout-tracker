@@ -1,0 +1,56 @@
+Workout Tracker — exercise demonstration image credits
+
+PHOTOS (start/end frames, img/<id>-0.jpg and img/<id>-1.jpg)
+Source: free-exercise-db by yuhonas — https://github.com/yuhonas/free-exercise-db
+Licence: The Unlicense (public domain dedication) — https://unlicense.org
+Original files: https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/<id>/0.jpg and 1.jpg
+Modifications: resized to max 600px, re-compressed as JPEG (quality 68). Downloaded 2026-09-29.
+
+App exercise  ->  free-exercise-db id  (note)
+  Chest-supported row  ->  Lying_T-Bar_Row  (Lying T-bar row (chest-supported) shown)
+  Lat pulldown (neutral grip)  ->  V-Bar_Pulldown  (Close/neutral-grip (V-bar) pulldown shown)
+  Neutral-grip DB press (low incline)  ->  Hammer_Grip_Incline_DB_Bench_Press  (Hammer-grip incline DB press shown — use a LOW incline (15–30°))
+  Face pull  ->  Face_Pull
+  Cable lateral raise  ->  Cable_Seated_Lateral_Raise  (Cable lateral raise (two-handle version) shown — one arm at a time is fine)
+  Hammer curl  ->  Hammer_Curls
+  Band external rotation  ->  External_Rotation_with_Band
+  Back squat  ->  Barbell_Squat
+  Romanian deadlift  ->  Romanian_Deadlift
+  Leg press  ->  Leg_Press
+  Lying leg curl  ->  Lying_Leg_Curls
+  Standing calf raise  ->  Standing_Calf_Raises
+  Dead bug  ->  Dead_Bug
+  Pull-ups / assisted  ->  Band_Assisted_Pull-Up  (Band-assisted pull-up shown (assisted machine works too))
+  Seated cable row  ->  Seated_Cable_Rows
+  Machine chest press  ->  Leverage_Chest_Press  (Leverage chest-press machine shown)
+  Landmine press  ->  Landmine_Linear_Jammer  (Closest match: two-hand landmine press (jammer) — do it one arm at a time, slow, no jump)
+  Rear delt fly  ->  Cable_Rear_Delt_Fly  (Cable rear-delt fly shown (reverse pec-deck works too))
+  Cable curl  ->  Standing_Biceps_Cable_Curl
+  Rope pushdown  ->  Triceps_Pushdown_-_Rope_Attachment
+  Trap bar deadlift  ->  Trap_Bar_Deadlift
+  Bulgarian split squat  ->  One_Leg_Barbell_Squat  (Barbell version shown — dumbbells at your sides are easier on shoulders & back)
+  Hip thrust  ->  Barbell_Hip_Thrust
+  Leg extension  ->  Leg_Extensions
+  Seated calf raise  ->  Seated_Calf_Raise
+  Hanging knee raise  ->  Knee_Hip_Raise_On_Parallel_Bars  (Captain's-chair knee raise shown — kinder than hanging for shoulders & back)
+  Single-arm DB row  ->  One-Arm_Dumbbell_Row
+  Straight-arm pulldown  ->  Straight-Arm_Pulldown
+  Intervals  ->  Bicycling_Stationary  (Stationary bike shown — rower, bike or incline walk all work)
+  Band pull-aparts  ->  Band_Pull_Apart
+  Cat-cow  ->  Cat_Stretch  ("Cat" (rounded) and neutral positions shown — add a gentle arch for "cow")
+  Kneeling hip flexor stretch  ->  Kneeling_Hip_Flexor
+  Child\  ->  Childs_Pose
+  Glute bridge  ->  Butt_Lift_Bridge
+  Side plank (knees)  ->  Side_Bridge  (Side bridge shown — bend knees for the easier version)
+  Bodyweight squats  ->  Bodyweight_Squat
+
+DIAGRAMS (no suitable free photo found) — original simple stick-figure SVGs drawn inline in index.html for this app; no third-party content:
+  Chin tucks  ->  inline SVG 'chin'
+  Wall angels  ->  inline SVG 'angel'
+  Doorway pec stretch  ->  inline SVG 'door'
+  Thoracic extension on foam roller  ->  inline SVG 'roller'
+  Open books  ->  inline SVG 'book'
+  90/90 hip flow  ->  inline SVG 'ninety'
+  Bird dog  ->  inline SVG 'birddog'
+  McGill curl-up  ->  inline SVG 'curlup'
+  Scap push-ups (light)  ->  inline SVG 'scap'
