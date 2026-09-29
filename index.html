@@ -47,6 +47,9 @@ label.lbl{display:block;color:var(--mu);font-size:14px;margin:10px 0 4px}
 .tag.main{background:#0f2f4a;color:var(--bl)}.tag.cardio{background:#12351f;color:var(--ac)}.tag.abs{background:#3b1f4a;color:#e9d5ff}
 .abshead{display:flex;align-items:center;gap:8px;margin:18px 0 6px;padding:10px 12px;border-radius:14px;background:#241833;border:1px solid #4c2a66}
 .abshead b{font-size:16px}.abshead .muted{flex:1}
+.blockbanner{background:linear-gradient(135deg,#1a2740,#1a1d24);border:1px solid #2a4a7a;border-radius:16px;padding:12px 14px;margin:10px 0}
+.blockbanner.deload{background:linear-gradient(135deg,#3a2a10,#1a1d24);border-color:#8a6a20}
+.blockbanner .row{margin:8px 0 0}
 .last{color:var(--mu);font-size:14px;margin:4px 0}
 .hint{border-radius:10px;padding:8px 10px;font-size:14px;font-weight:600;margin:6px 0}
 .warn{background:#3b2a0b;color:#fcd34d}.up{background:#12351f;color:#86efac}
@@ -143,6 +146,22 @@ const DEFAULT_PLAN=[
 ];
 const ABS_BY_PLAN={upperA:ABS_UPPER,upperB:ABS_UPPER,lowerA:ABS_LOWER,lowerB:ABS_LOWER,sunday:ABS_SUNDAY};
 const ABS_NOTE='Abs finisher · ~5–8 min · stop if lower-back pain increases; skip heavy loaded spinal flexion on flare days (use dead bug / bird dog / side plank instead of crunches).';
+// Accessories flip each 4-week block. Mains (hack squat, RDL, leg press, trap bar, rows, pulldowns, pull-ups, presses) stay.
+const ACCESSORY_B={
+ 'Face pull':ex('Rear delt fly',3,'15'),
+ 'Rear delt fly':ex('Face pull',3,'15'),
+ 'Cable lateral raise':ex('Machine lateral raise',3,'15',{press:1}),
+ 'Machine lateral raise':ex('Cable lateral raise',3,'15',{press:1}),
+ 'Hammer curl':ex('Cable curl',3,'12'),
+ 'Cable curl':ex('Hammer curl',3,'12'),
+ 'Lying leg curl':ex('Leg extension',3,'15'),
+ 'Leg extension':ex('Lying leg curl',3,'12'),
+ 'Standing calf raise':ex('Seated calf raise',4,'12-15'),
+ 'Seated calf raise':ex('Standing calf raise',4,'12-15'),
+ 'Cable crunch':ex('Hanging knee raise',2,'12',{abs:1}),
+ 'Hanging knee raise':ex('Cable crunch',2,'12',{abs:1})
+};
+
 function mi(name,dose,sec,cue){return {name,dose,sec,cue};}
 const DEFAULT_ROUTINES=[
  {id:'posture',name:'Posture & mobility',hint:'Daily · ~10 min',items:[
@@ -177,11 +196,11 @@ const CARDIO_TYPES=['Walk','Incline treadmill','Bike','Rower','Intervals','Swim'
 const clone=o=>JSON.parse(JSON.stringify(o));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function defaults(){return {version:1,plan:clone(DEFAULT_PLAN),sessions:[],cardio:[],body:[],active:null,routines:clone(DEFAULT_ROUTINES),mobLog:{},backPain:{},scans:[],cues:{},settings:{rest:90,restMain:120,lastExport:null}};}
+function defaults(){return {version:1,plan:clone(DEFAULT_PLAN),sessions:[],cardio:[],body:[],active:null,routines:clone(DEFAULT_ROUTINES),mobLog:{},backPain:{},scans:[],cues:{},block:{start:null,letter:'A',number:1},settings:{rest:90,restMain:120,lastExport:null}};}
 function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.assign(defaults().settings,s.settings||{});
  ['sessions','cardio','body'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[]}); if(!Array.isArray(s.plan)||!s.plan.length)s.plan=clone(DEFAULT_PLAN);else if(mergeAbsIntoPlan(s.plan))s._absMerged=1; if(!Array.isArray(s.routines)||!s.routines.length)s.routines=clone(DEFAULT_ROUTINES);else{const have=new Set(s.routines.map(r=>r.id));DEFAULT_ROUTINES.forEach(d=>{if(!have.has(d.id))s.routines.push(clone(d));});}
  if(!Array.isArray(s.scans))s.scans=[];
- ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}}); return s;}
+ ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}});if(!s.block||typeof s.block!=='object')s.block={start:null,letter:'A',number:1};s.block.letter=(s.block.letter==='B'?'B':'A');s.block.number=Math.max(1,parseInt(s.block.number)||1);if(s.block.start&&!/^\d{4}-\d{2}-\d{2}$/.test(s.block.start))s.block.start=null;return s;}
 function load(){try{const r=localStorage.getItem(KEY);if(r)return normalize(JSON.parse(r));}catch(e){console.error(e)}return defaults();}
 let S=load();
 if(S._absMerged){delete S._absMerged;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -202,6 +221,17 @@ const fmtKeyShort=k=>new Date(keyT(k)).toLocaleDateString('en-AU',{timeZone:'UTC
 
 // ---- helpers ----
 const planById=id=>S.plan.find(p=>p.id===id);
+function ensureBlock(){if(!S.block)S.block={start:null,letter:'A',number:1};if(!S.block.start){S.block.start=todayKey();S.block.letter=S.block.letter==='B'?'B':'A';S.block.number=Math.max(1,parseInt(S.block.number)||1);save();}}
+function blockWeekNum(start,onKey){const days=Math.floor((keyT(onKey||todayKey())-keyT(start))/864e5);return Math.floor(Math.max(0,days)/7)+1;}
+function advanceBlock(fromAuto){ensureBlock();S.block.letter=S.block.letter==='A'?'B':'A';S.block.number=(parseInt(S.block.number)||1)+1;S.block.start=todayKey();save();toast((fromAuto?'New block started · ':'')+'Block '+S.block.number+S.block.letter+' · Week 1 of 4');}
+function blockInfo(){ensureBlock();let week=blockWeekNum(S.block.start),auto=false;
+ while(week>4){S.block.letter=S.block.letter==='A'?'B':'A';S.block.number=(parseInt(S.block.number)||1)+1;S.block.start=keyAdd(S.block.start,28);week=blockWeekNum(S.block.start);auto=true;}
+ if(auto)save();
+ const end=keyAdd(S.block.start,27),nextLetter=S.block.letter==='A'?'B':'A';
+ return {letter:S.block.letter,number:S.block.number,week,deload:week===4,start:S.block.start,end,nextStart:keyAdd(S.block.start,28),nextLetter,label:'Block '+S.block.number+S.block.letter+' · Week '+week+' of 4'};}
+function applyBlockLetter(exercises,letter){if(letter!=='B')return clone(exercises);
+ return exercises.map(e=>{const sw=ACCESSORY_B[e.name];if(!sw)return clone(e);const out=clone(sw);out.abs=!!(sw.abs||e.abs);out.press=!!(sw.press||e.press);out.main=!!e.main;out.cardio=!!e.cardio;return out;});}
+function deloadSets(n){n=Math.max(1,parseInt(n)||1);return Math.max(1,Math.round(n*2/3));}
 function mergeAbsIntoPlan(plan){let changed=false;plan.forEach(p=>{const block=ABS_BY_PLAN[p.id];if(!block||!Array.isArray(p.exercises))return;
   if(p.exercises.some(e=>e.abs))return;
   if(p.id==='lowerA')p.exercises=p.exercises.filter(e=>e.name!=='Dead bug');
@@ -257,13 +287,18 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain &gt; 3/10</div>`;
+ const bi=blockInfo();
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain &gt; 3/10</div>
+ <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
+ <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
+ <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, hammer curl, standing calf, cable crunch':'rear delt, machine lateral, cable curl, seated calf, hanging knee raise'}</div>
+ ${bi.week>=4?`<div class="row"><button class="btn sm primary" data-a="blockNext">Start next block now</button></div>`:''}</div>`;
  const pr=routineProg('posture',todayKey()),st=streak('posture');
  h+=`<button class="btn sessbtn" data-a="mobGo" data-r="${suggestedRoutine()}"><span>🧘 ${esc(routineById(suggestedRoutine())?routineById(suggestedRoutine()).name:'Mobility')}<br><small>Suggested today · posture ${pr.n}/${pr.of} · 🔥 ${st}-day streak</small></span><small>›</small></button>`;
  if(S.active)h+=`<div class="card" style="border-color:var(--wa)"><h3>Session in progress: ${esc(S.active.name)}</h3><div class="muted">Started ${fmtTime(S.active.start)}</div><button class="btn primary wide" data-a="nav" data-v="session">Resume session</button></div>`;
- if(sp)h+=`<div class="card hero"><div class="muted">Suggested next</div><h1 style="margin:2px 0 8px">${esc(sp.name)}</h1>
-  <div class="muted">${sp.exercises.map(e=>esc(e.name)).join(' · ')}</div>
-  <button class="btn primary wide" data-a="start" data-id="${sug}">▶ Start ${esc(sp.name)}</button></div>`;
+ if(sp){const prev=applyBlockLetter(sp.exercises,bi.letter);h+=`<div class="card hero"><div class="muted">Suggested next${bi.deload?' · deload volume':''}</div><h1 style="margin:2px 0 8px">${esc(sp.name)}</h1>
+  <div class="muted">${prev.map(e=>esc(e.name)).join(' · ')}</div>
+  <button class="btn primary wide" data-a="start" data-id="${sug}">▶ Start ${esc(sp.name)}</button></div>`;}
  h+=`<div class="card"><h3>This week</h3><div class="week">${Object.keys(SCHEDULE).map(d=>{const p=planById(SCHEDULE[d]);
    const lab=SCHEDULE[d]==='sunday'?'Pull*':(p?p.name.replace(/Upper /,'Up ').replace(/Lower /,'Lo '):'Rest');
    return `<div class="day ${d===wd?'today':''} ${p?'':'rest'}"><b>${d}</b>${esc(lab)}</div>`}).join('')}</div>
@@ -280,7 +315,8 @@ function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),toda
 function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const nDone=s.exercises.reduce((a,e)=>a+(e.cardio?(e.done?1:0):doneSets(e).length),0);
  const wu=/^lower/i.test(s.planId)?'wuLower':'wuUpper',wp=routineProg(wu,todayKey());
- let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div><div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done</div>
+ let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div><div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''}</div>
+ ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
  let absShown=false;
@@ -314,7 +350,10 @@ function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
 function mkEx(t){const e={name:t.name,press:!!t.press,main:!!t.main,cardio:!!t.cardio,abs:!!t.abs,target:{sets:Math.max(1,parseInt(t.sets)||1),reps:String(t.reps||'')},notes:'',pain:null};
  if(e.cardio){e.minutes='';e.done=false;}else e.sets=Array.from({length:e.target.sets},()=>({w:'',r:'',done:false}));return e;}
 function startSession(id){if(S.active&&!confirm('A session is already in progress. Discard it and start a new one?'))return;
- const p=planById(id);S.active={id:uid(),planId:p?p.id:'custom',name:p?p.name:'Custom',start:Date.now(),notes:'',exercises:p?p.exercises.map(mkEx):[]};
+ const p=planById(id),bi=blockInfo();
+ let raw=p?applyBlockLetter(p.exercises,bi.letter):[];
+ if(bi.deload)raw=raw.map(e=>{e=clone(e);if(!e.cardio)e.sets=deloadSets(e.sets);return e;});
+ S.active={id:uid(),planId:p?p.id:'custom',name:p?p.name:'Custom',start:Date.now(),notes:'',blockLetter:bi.letter,blockWeek:bi.week,deload:!!bi.deload,exercises:raw.map(mkEx)};
  save();go('session');wake(true);}
 function exModal(target){const names=allExerciseNames();
  modal(`<h2 style="margin-top:0">Add exercise</h2><label class="lbl">Name</label><input id="mName" list="exnames" placeholder="e.g. Cable row"><datalist id="exnames">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
@@ -396,6 +435,11 @@ function vSettings(){const le=S.settings.lastExport;
   <button class="btn wide" data-a="import">⬆ Import backup from file</button>
   <button class="btn wide" data-a="paste">📋 Import by pasting JSON</button>
   <div class="muted">${S.sessions.length} sessions · ${S.cardio.length} cardio · ${S.body.length} weigh-ins · ${S.scans.length} scans${PH?' · '+PH.length+' photos':''}. Importing replaces data; photos in a backup are merged.</div></div>
+  <h2>Training block</h2><div class="card">${(()=>{const b=blockInfo();return `<div><b>${esc(b.label)}${b.deload?' · DELOAD':''}</b></div>
+  <div class="muted">Accessories set ${b.letter} · ${fmtKeyDate(b.start)} → ${fmtKeyDate(b.end)}. Mains stay the same; accessories flip A↔B each new block.</div>
+  <label class="lbl">Block start date</label><input type="date" id="blockStart" value="${b.start}">
+  <div class="grid2" style="margin-top:8px"><button class="btn" data-a="blockSaveStart">Save start date</button><button class="btn" data-a="blockNext">Start next block (${b.letter}→${b.nextLetter})</button></div>
+  <button class="btn wide" data-a="blockReset" style="margin-top:6px">Reset to Block 1A starting today</button>`;})()}</div>
   <h2>Rest timer</h2><div class="card grid2"><div><label class="lbl">Default (s)</label><input type="number" inputmode="numeric" data-f="rest" data-k="rest" value="${S.settings.rest}"></div>
   <div><label class="lbl">Main lifts (s)</label><input type="number" inputmode="numeric" data-f="rest" data-k="restMain" value="${S.settings.restMain}"></div></div>
   <h2>Plan</h2><div class="muted">Changes save automatically and apply to new sessions. P = pressing, M = main lift, C = cardio, A = abs finisher. Missing abs blocks are auto-added once for older saved plans; use Reset plan to fully restore defaults.</div>`;
@@ -473,7 +517,10 @@ const A={
  plAdd:t=>exModal(t.dataset.p),
  plMove:t=>{const a=S.plan[+t.dataset.p].exercises,i=+t.dataset.x;if(i>0){[a[i-1],a[i]]=[a[i],a[i-1]];save();renderKeepOpen();}},
  plDel:t=>{const a=S.plan[+t.dataset.p].exercises,i=+t.dataset.x;if(confirm(`Remove ${a[i].name} from the plan?`)){a.splice(i,1);save();renderKeepOpen();}},
- plReset:()=>{if(confirm('Reset the plan to the default program? (History is kept.)')){S.plan=clone(DEFAULT_PLAN);save();render();toast('Plan reset');}},
+ plReset:()=>{if(confirm('Reset the plan to the default program? (History is kept. Training block is unchanged.)')){S.plan=clone(DEFAULT_PLAN);save();render();toast('Plan reset');}},
+ blockSaveStart:()=>{const v=(document.getElementById('blockStart')||{}).value;if(!v){toast('Pick a date');return;}S.block.start=v;save();toast('Block start saved');render();},
+ blockNext:()=>{if(!confirm('Start the next 4-week block now? Accessories flip A↔B and week resets to 1.'))return;advanceBlock(false);render();},
+ blockReset:()=>{if(!confirm('Reset training block to Block 1A starting today?'))return;S.block={start:todayKey(),letter:'A',number:1};save();toast('Block reset to 1A');render();},
  clear:()=>modal(`<h2 style="margin-top:0;color:var(--da)">Clear all data?</h2><p>This deletes all sessions, cardio, body weight and plan edits from this device. Export a backup first!</p><label class="lbl">Type DELETE to confirm</label><input id="clrTa" autocomplete="off" autocapitalize="characters"><div class="row"><button class="btn grow" data-a="closeModal">Cancel</button><button class="btn danger grow" data-a="clearOk">Delete everything</button></div>`),
  clearOk:()=>{if(document.getElementById('clrTa').value.trim().toUpperCase()!=='DELETE'){toast('Type DELETE to confirm');return;}localStorage.removeItem(KEY);S=defaults();save();idbClear().catch(()=>{});PH=null;stopTimer();closeModal();toast('All data cleared');go('home');},
  mobGo:t=>{const id=t.dataset.r;if(!routineById(id)){toast('Warm-up routine missing — reset mobility routines in Settings');return;}mobSel=id;mobFromSession=!!S.active;go('mobility');requestAnimationFrame(()=>{const chip=document.querySelector('.chips [data-r="'+id+'"]');if(chip)chip.scrollIntoView({inline:'center',block:'nearest',behavior:'instant'});const list=document.getElementById('mobList');if(list)list.scrollIntoView({behavior:'smooth',block:'start'});});},
@@ -679,6 +726,7 @@ const DEMOS=[
  {n:['Lat pulldown (neutral grip)','Lat pulldown','Neutral grip pulldown'],img:'V-Bar_Pulldown',approx:'Close/neutral-grip (V-bar) pulldown shown',s:'Thighs under pads, neutral (palms-facing) handle, slight lean back, chest up.',m:'Drive elbows down to your sides, bring handle to upper chest, control it back up to near full stretch.',x:'Pulling behind the neck; leaning way back; letting shoulders shrug up at the top.',w:'Stay in a pain-free top position — no need to fully hang at the top if the left shoulder pinches. Never pull behind the neck.'},
  {n:['Neutral-grip DB press (low incline)','Neutral-grip DB press low incline','Incline DB press','Neutral grip DB press'],img:'Hammer_Grip_Incline_DB_Bench_Press',approx:'Hammer-grip incline DB press shown — use a LOW incline (15–30°)',s:'Bench at a low incline, dumbbells at chest with palms facing each other, shoulder blades back & down.',m:'Press up and slightly in, elbows ~30–45° from body, lower slowly until a comfortable stretch.',x:'Elbows flared to 90°; bouncing out of the bottom; going too deep.',w:'PRESS: rate pain 0–10. Left shoulder: shorten the range (stop ~2–3 cm above chest) and keep elbows tucked. Pain >3 = keep weight same or lighter.'},
  {n:['Face pull','Face pulls'],img:'Face_Pull',s:'Rope on a cable at upper-chest/face height, overhand or thumbs-up grip, step back, stand tall.',m:'Pull the rope toward your eyes, hands apart, elbows high-ish and back, rotate hands back; pause.',x:'Going too heavy and leaning back; shrugging; elbows dropping low.',w:'Great for posture and shoulder health. Keep it light and smooth; if the left shoulder complains, lower the pulley to chest height.'},
+ {n:['Machine lateral raise','Seated lateral raise','Seated side lateral raise'],img:'Seated_Side_Lateral_Raise',approx:'Seated/machine-style lateral raise shown — stop at shoulder height, pain-free',s:'Seat upright, pads or DBs at sides, slight elbow bend, chest up.',m:'Raise arms out to about shoulder height (thumbs slightly up / scaption), lower slowly.',x:'Shrugging; swinging; going above the ears.',w:'PRESS: left shoulder bursitis — stop at or below shoulder height; skip if pain >3.'},
  {n:['Cable lateral raise','Lateral raise'],img:'Cable_Seated_Lateral_Raise',approx:'Cable lateral raise (two-handle version) shown — one arm at a time is fine',s:'Low pulley, handle in the opposite hand, stand side-on, slight forward lean, soft elbow.',m:'Raise arm out to the side to about shoulder height (thumb slightly up), lower slowly.',x:'Swinging; shrugging; raising above shoulder height.',w:'PRESS-marked for pain tracking. Left shoulder: stop at or below shoulder height, "scaption" (arm ~30° forward) is usually friendlier. Skip if painful.'},
  {n:['Hammer curl','Hammer curls'],img:'Hammer_Curls',s:'Stand tall, dumbbells at sides, palms facing in, elbows by ribs.',m:'Curl up without moving the elbows, squeeze, lower slowly to full extension.',x:'Swinging the torso; elbows drifting forward; dropping the weight.',w:'Right elbow bursitis: don\'t rest or lean the elbow on anything, avoid slamming into lockout, keep reps smooth.'},
  {n:['Band external rotation','External rotation'],img:'External_Rotation_with_Band',s:'Band at elbow height, elbow bent 90° and tucked at your side (towel roll between elbow and ribs).',m:'Rotate forearm outward away from the belly, keep elbow pinned, return slowly.',x:'Elbow drifting away from the body; too heavy a band; rotating the torso.',w:'Rotator-cuff friendly; use a light band and pain-free range for the left shoulder.'},
@@ -687,6 +735,7 @@ const DEMOS=[
  {n:['Back squat','Squat','Barbell squat'],img:'Hack_Squat',approx:'Barbell back squat avoided for low-back — showing machine hack squat (preferred alternative)',s:'Prefer Hack squat (machine) or Goblet squat instead of a barbell on your back.',m:'See Hack squat / Goblet squat demos for form.',x:'Loading a barbell on the back when the lower back is symptomatic.',w:'Low back: skip barbell back squats while the back is irritable. Use Hack squat (machine) or Goblet squat instead — both keep the torso more upright and unload the spine.'},
  {n:['Romanian deadlift','RDL'],img:'Romanian_Deadlift',s:'Stand holding bar/DBs at hips, soft knees, shoulder blades back, brace.',m:'Push hips back, slide weight down the thighs until you feel hamstrings (usually mid-shin), then drive hips forward.',x:'Rounding the back; turning it into a squat; bar drifting away from the legs.',w:'Low back pain: stop the descent the moment your back wants to round; go lighter and shorter range; DBs are often easier to keep close.'},
  {n:['Leg press'],img:'Leg_Press',s:'Back and hips flat on the pad, feet shoulder-width mid-platform.',m:'Lower until knees ~90° (or before your hips tuck under), press through whole foot, don\'t lock knees hard.',x:'Going so deep your tailbone lifts off the pad; locking out knees; pushing through toes.',w:'Low back: the depth where your pelvis starts to curl up is your limit — stop just before it.'},
+ {n:['Seated leg curl'],img:'Seated_Leg_Curl',s:'Seat adjusted so the pad sits on the lower Achilles, knees lined up with the pivot.',m:'Curl heels under the seat, squeeze hamstrings, lower slowly.',x:'Hips lifting; using momentum; incomplete range.',w:'Low back: keep hips planted; don\'t yank.'},
  {n:['Lying leg curl','Leg curl'],img:'Lying_Leg_Curls',s:'Lie face down, pad just above heels, knees just off the bench edge, hold handles.',m:'Curl heels toward glutes, squeeze, lower slowly.',x:'Hips lifting off the pad; jerking; half reps.',w:'Press hips gently into the pad to avoid arching the lower back.'},
  {n:['Standing calf raise','Calf raise'],img:'Standing_Calf_Raises',s:'Balls of feet on the step, heels hanging, knees straight but not locked.',m:'Rise as high as possible, pause 1 s, lower slowly into a deep stretch.',x:'Bouncing; bending knees; tiny range of motion.',w:''},
  {n:['Dead bug'],img:'Dead_Bug',s:'On your back, arms to the ceiling, hips & knees at 90°, low back gently pressed down.',m:'Slowly extend opposite arm and leg toward the floor while exhaling, keep low back down, return and switch.',x:'Low back arching off the floor; rushing; holding breath.',w:'Back-friendly core exercise. If reaching overhead bothers the left shoulder, keep arms pointing at the ceiling and move legs only.'},
