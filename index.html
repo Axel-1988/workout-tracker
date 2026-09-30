@@ -95,6 +95,10 @@ nav button{flex:1;background:none;border:0;color:var(--mu);font-size:10px;font-w
 nav button span{font-size:20px;line-height:1}
 .mealchip{font-size:12px}
 .mi input[type=checkbox]{width:26px;height:26px;min-height:0;flex:0 0 26px;margin-top:4px}
+.favrow{display:flex;gap:8px;align-items:stretch;margin-top:8px}
+.favrow .favbtn{flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;text-align:left;gap:2px;min-height:56px;padding:10px 14px}
+.favrow .favbtn small{font-weight:500;opacity:.85;font-size:13px}
+.favrow .favinfo{flex:0 0 48px;min-width:48px;align-self:stretch}
 nav button.on{color:var(--ac);background:#1a2a20}
 nav button.live{color:var(--wa)}
 .timer{position:fixed;left:8px;right:8px;bottom:calc(76px + env(safe-area-inset-bottom));max-width:544px;margin:0 auto;background:#10261a;border:2px solid var(--ac);border-radius:18px;padding:8px 10px;display:flex;align-items:center;gap:8px;z-index:21;box-shadow:0 8px 30px #000a}
@@ -582,7 +586,12 @@ const A={
  foodLibOk:()=>{const mult=n0((document.getElementById('fMult')||{}).value)||1;
   const food={name:(document.getElementById('fBaseName')||{}).value,kcal:n0((document.getElementById('fBaseK')||{}).value)*mult,protein:n0((document.getElementById('fBaseP')||{}).value)*mult,carbs:n0((document.getElementById('fBaseC')||{}).value)*mult,fat:(document.getElementById('fBaseF')||{}).value===''?null:n0((document.getElementById('fBaseF')||{}).value)*mult,barcode:(document.getElementById('bcCode')||{}).value||null,source:'library'};
   closeModal();addFoodToLog(food);},
- foodLogDel:t=>{ensureMeals();const L=dayLog(t.dataset.d);L.splice(+t.dataset.i,1);save();render();}
+ foodLogDel:t=>{ensureMeals();const L=dayLog(t.dataset.d);L.splice(+t.dataset.i,1);save();render();},
+ favQuickAdd:t=>{ensureMeals();const id=t.dataset.id;const f=S.meals.library[id]||favById(id);if(!f){toast('Favourite missing');return;}
+  closeModal();
+  addFoodToLog({name:f.short||f.label||f.name,kcal:f.kcal,protein:f.protein,carbs:f.carbs,fat:f.fat,barcode:f.barcode||id,source:'favourite'},
+   '✓ '+(f.short||f.label||'Favourite')+' · 1 serve');},
+ favInfo:t=>favInfoModal(t.dataset.id)
 };
 function renderKeepOpen(){const open=[...document.querySelectorAll('details')].map(d=>d.open),y=scrollY;render();document.querySelectorAll('details').forEach((d,i)=>d.open=!!open[i]);scrollTo(0,y);}
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t)return;const f=A[t.dataset.a];if(f){if(t.type!=='checkbox'&&t.type!=='radio')e.preventDefault();f(t,e);}});
@@ -949,6 +958,25 @@ function R(ingredients,method,allergens,note){
  return {ingredients:ingredients||'',method:method||'',allergens:allergens||'',note:note||''};
 }
 
+/* Quick-add favourites (seeded into S.meals.library + S.meals.favourites). Macros = one labelled serve. */
+const MEAL_FAVOURITES=[
+ {id:'fav-wpi-banana',
+  name:'International Protein Amino Charged WPI — Banana Ice Cream',
+  short:'WPI Banana',
+  label:'Amino Charged WPI · Banana',
+  button:'+ Protein shake',
+  serving:'40g (≈1⅓ scoops)',
+  kcal:152,protein:35.3,carbs:1.4,fat:0.3,sodium:138,
+  note:'Whey protein isolate. Mix with water or milk. Values from product nutrition label (per 40g serve).',
+  allergens:'milk'}
+];
+function favById(id){return MEAL_FAVOURITES.find(x=>x.id===id)||null;}
+function favToLibraryEntry(f){
+ return {name:f.name,short:f.short||f.name,label:f.label||f.short||f.name,kcal:f.kcal,protein:f.protein,carbs:f.carbs,fat:f.fat,
+  sodium:f.sodium!=null?f.sodium:null,serving:f.serving||'',note:f.note||'',allergens:f.allergens||'',
+  barcode:f.id,favourite:true,source:'favourite'};
+}
+
 function defaultMeals(){
  const days={};
  // Plan week Mon 28 Sep – Sun 4 Oct (covers delivery Wed 30 until next Wed 7). Home suggestions only — Youfoodz are a separate checklist.
@@ -1076,6 +1104,8 @@ function defaultMeals(){
   mkPlanItem('m04-sw','Protein pudding','snack',160,25,8,'home',Object.assign({fat:3},R('Protein pudding','','milk',''))),
   mkPlanItem('m04-tr','Treat allowance (~180 kcal)','treat',180,1,20,'home',Object.assign({fat:8},R('~180 kcal','Optional','','')))
  ]};
+ const lib={};const favIds=[];
+ MEAL_FAVOURITES.forEach(f=>{lib[f.id]=favToLibraryEntry(f);favIds.push(f.id);});
  return {
   delivery:{
    week:'2026-W40',date:'2026-09-30',area:'Cecil Park 2178',status:'Delivered',source:'seed',
@@ -1085,7 +1115,8 @@ function defaultMeals(){
   days,
   targets:Object.assign({},MEAL_TARGETS),
   log:{},
-  library:{}
+  library:lib,
+  favourites:favIds
  };
 }
 function ensureMeals(){
@@ -1140,6 +1171,12 @@ function ensureMeals(){
  S.meals.targets=Object.assign({},MEAL_TARGETS,S.meals.targets||{});
  if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
  if(!S.meals.library||typeof S.meals.library!=='object'||Array.isArray(S.meals.library))S.meals.library={};
+ if(!Array.isArray(S.meals.favourites))S.meals.favourites=[];
+ // Seed / refresh known favourites in library + favourites list (user can add more later)
+ MEAL_FAVOURITES.forEach(f=>{
+  S.meals.library[f.id]=Object.assign({},S.meals.library[f.id]||{},favToLibraryEntry(f));
+  if(!S.meals.favourites.includes(f.id))S.meals.favourites.push(f.id);
+ });
  return S.meals;
 }
 let mealDay=null,mealTab='plan'; // plan | log
@@ -1232,6 +1269,7 @@ function vMeals(){
  if(yfToday.length)h+=`<div class="hint up" style="margin:4px 0 8px">Youfoodz on this day: ${yfToday.map(x=>esc(x.name)).join(' · ')}</div>`;
  h+=`<div class="muted" style="margin:4px 0 8px">Home plan (suggestions): ${Math.round(planTot.kcal)} kcal · ${Math.round(planTot.protein)}g P · checked plan items + Youfoodz ticks + log count above</div>`;
  if(day.notes)h+=`<div class="hint up">${esc(day.notes)}</div>`;
+ h+=favouritesRow(k);
 
  if(mealTab==='plan'){
   h+=`<div class="card" style="padding:4px 12px">${(day.items||[]).map(it=>{
@@ -1258,16 +1296,50 @@ function vMeals(){
    h+=`<div class="card list" style="padding:4px 12px">`+yfToday.map(x=>`<div class="item" style="cursor:default"><span><b>${esc(x.name)}</b><br><span class="muted">${x.kcal} kcal · ${x.protein}g P · Youfoodz tick</span></span>
     <button class="btn sm" data-a="mealRecipe" data-kind="yf" data-id="${esc(x.id)}">ⓘ</button></div>`).join('')+'</div>';
   }
-  if(!log.length&&!yfToday.length)h+=`<div class="card muted">Nothing logged yet. Scan a barcode, enter a number, add a custom food, or tick a Youfoodz meal.</div>`;
+  if(!log.length&&!yfToday.length)h+=`<div class="card muted">Nothing logged yet. Quick-add a protein shake, scan a barcode, add a custom food, or tick a Youfoodz meal.</div>`;
   else if(log.length) h+=`<div class="card list" style="padding:4px 12px">`+log.map((x,i)=>`<div class="item" style="cursor:default"><span><b>${esc(x.name)}</b><br><span class="muted">${Math.round(n0(x.kcal))} kcal · ${n0(x.protein)}g P · ${n0(x.carbs)}g C · ${x.fat!=null?n0(x.fat)+'g F':'—'}${x.barcode?' · #'+esc(x.barcode):''}</span></span>
    <button class="btn sm danger" data-a="foodLogDel" data-d="${k}" data-i="${i}">✕</button></div>`).join('')+'</div>';
  }
  return h;
 }
-function addFoodToLog(entry){
+function favouritesRow(dayKey){
+ ensureMeals();
+ const ids=(S.meals.favourites&&S.meals.favourites.length)?S.meals.favourites:MEAL_FAVOURITES.map(f=>f.id);
+ if(!ids.length)return '';
+ const dayLbl=fmtKeyShort(dayKey||mealDayKey());
+ let h=`<div class="card hero" style="padding:12px"><div class="hrow"><b>⚡ Quick add</b><span class="muted">1 serve → ${esc(dayLbl)}</span></div>`;
+ ids.forEach(id=>{
+  const seed=favById(id)||{};
+  const f=Object.assign({},seed,S.meals.library[id]||{});
+  if(!f||(!f.name&&!f.short))return;
+  const btn=seed.button||('+ '+(f.short||f.label||'Favourite'));
+  const sub=esc(f.label||f.short||f.name)+' · '+n0(f.kcal)+' kcal · '+n0(f.protein)+'g P';
+  h+=`<div class="favrow"><button type="button" class="btn primary favbtn" data-a="favQuickAdd" data-id="${esc(id)}"><span>${esc(btn)}</span><small>${sub}</small></button>
+   <button type="button" class="btn sm favinfo" data-a="favInfo" data-id="${esc(id)}" title="Serve size / macros" aria-label="Info">ⓘ</button></div>`;
+ });
+ h+=`<div class="muted" style="margin-top:8px;font-size:12px">Saved in favourites / food library — tap ⓘ for full label info.</div></div>`;
+ return h;
+}
+function favInfoModal(id){
+ ensureMeals();
+ const seed=favById(id)||{};
+ const f=Object.assign({},seed,S.meals.library[id]||{});
+ if(!f||(!f.name&&!f.short)){toast('Favourite not found');return;}
+ const fat=f.fat!=null?` · ${f.fat}g F`:'';
+ const sod=f.sodium!=null?`<div style="margin-top:8px"><div class="muted" style="font-size:12px">Sodium</div><b>${f.sodium} mg</b></div>`:'';
+ const serv=f.serving?`<div style="margin-top:8px"><div class="muted" style="font-size:12px">Serving</div><b>${esc(f.serving)}</b></div>`:'';
+ const all=f.allergens?`<div style="margin-top:8px"><div class="muted" style="font-size:12px">Allergens</div><b>${esc(f.allergens)}</b></div>`:'';
+ const note=f.note?`<div class="muted" style="margin-top:10px">${esc(f.note)}</div>`:'';
+ modal(`<div class="hrow"><h2 style="margin:0;flex:1">${esc(f.short||f.label||f.name)}</h2><button class="btn sm" data-a="closeModal">Close</button></div>
+  <div class="muted">${esc(f.name||'')}</div>
+  <div class="card" style="margin-top:8px"><b>${n0(f.kcal)} kcal · ${n0(f.protein)}g P · ${n0(f.carbs)}g C${fat}</b></div>
+  ${serv}${sod}${all}${note}
+  <button class="btn primary wide" data-a="favQuickAdd" data-id="${esc(id)}" style="margin-top:12px">${esc(seed.button||'+ Add 1 serve')}</button>`);
+}
+function addFoodToLog(entry,toastMsg){
  ensureMeals();const k=mealDayKey();
  const row={id:uid(),name:entry.name,kcal:n0(entry.kcal),protein:n0(entry.protein),carbs:n0(entry.carbs),fat:entry.fat==null||entry.fat===''?null:n0(entry.fat),barcode:entry.barcode||null,t:Date.now(),source:entry.source||'manual'};
- dayLog(k).push(row);save();toast('✓ Added to log');mealTab='log';render();
+ dayLog(k).push(row);save();toast(toastMsg||'✓ Added to log');mealTab='log';render();
 }
 function stopBarcode(){
  bcLoop++;
