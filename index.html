@@ -94,6 +94,14 @@ nav{position:fixed;left:0;right:0;bottom:0;background:#12151bf2;backdrop-filter:
 nav button{flex:1;background:none;border:0;color:var(--mu);font-size:10px;font-weight:600;min-height:56px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;padding:4px 2px}
 nav button span{font-size:20px;line-height:1}
 .mealchip{font-size:12px}
+.mbar{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.mbar .mr{display:grid;grid-template-columns:72px 1fr auto;gap:8px;align-items:center}
+.mbar .mr .lbl{font-size:13px;color:var(--mu);font-weight:600}
+.mbar .mr .vals{font-size:14px;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap;text-align:right;min-width:7.5em}
+.mbar .track{height:10px;background:var(--card2);border-radius:6px;overflow:hidden}
+.mbar .fill{height:100%;border-radius:6px;background:var(--ac);transition:width .25s ease,background .25s ease}
+.mbar .fill.near,.mbar .fill.over{background:var(--wa)}
+.mbar .fill.way{background:var(--da)}
 .mi input[type=checkbox]{width:26px;height:26px;min-height:0;flex:0 0 26px;margin-top:4px}
 .favrow{display:flex;gap:8px;align-items:stretch;margin-top:8px}
 .favrow .favbtn{flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;text-align:left;gap:2px;min-height:56px;padding:10px 14px}
@@ -447,6 +455,12 @@ function vSettings(){const le=S.settings.lastExport;
   <label class="lbl">Block start date</label><input type="date" id="blockStart" value="${b.start}">
   <div class="grid2" style="margin-top:8px"><button class="btn" data-a="blockSaveStart">Save start date</button><button class="btn" data-a="blockNext">Start next block (${b.letter}→${b.nextLetter})</button></div>
   <button class="btn wide" data-a="blockReset" style="margin-top:6px">Reset to Block 1A starting today</button>`;})()}</div>
+  <h2>Meal targets</h2><div class="card"><div class="muted" style="margin-bottom:6px">Daily goals for the Meals tab progress bars. Defaults: 2450 kcal · 180g P · 250g C · 70g F.</div>
+  <div class="grid2">${(()=>{ensureMeals();const t=Object.assign({},MEAL_TARGETS,S.meals.targets||{});return `
+   <div><label class="lbl">Calories (kcal)</label><input type="number" inputmode="numeric" min="1" step="10" data-f="mealTgt" data-k="kcal" value="${t.kcal}"></div>
+   <div><label class="lbl">Protein (g)</label><input type="number" inputmode="numeric" min="1" step="1" data-f="mealTgt" data-k="protein" value="${t.protein}"></div>
+   <div><label class="lbl">Carbs (g)</label><input type="number" inputmode="numeric" min="1" step="1" data-f="mealTgt" data-k="carbs" value="${t.carbs}"></div>
+   <div><label class="lbl">Fat (g)</label><input type="number" inputmode="numeric" min="1" step="1" data-f="mealTgt" data-k="fat" value="${t.fat}"></div>`;})()}</div></div>
   <h2>Rest timer</h2><div class="card grid2"><div><label class="lbl">Default (s)</label><input type="number" inputmode="numeric" data-f="rest" data-k="rest" value="${S.settings.rest}"></div>
   <div><label class="lbl">Main lifts (s)</label><input type="number" inputmode="numeric" data-f="rest" data-k="restMain" value="${S.settings.restMain}"></div></div>
   <h2>Plan</h2><div class="muted">Changes save automatically and apply to new sessions. P = pressing, M = main lift, C = cardio, A = abs finisher. Missing abs blocks are auto-added once for older saved plans; use Reset plan to fully restore defaults.</div>`;
@@ -604,6 +618,7 @@ document.addEventListener('input',e=>{const t=e.target,f=t.dataset.f;
  else if(f==='sNotes'){S.active.notes=t.value;save();}
  else if(f==='exNotes'){S.active.exercises[+t.dataset.i].notes=t.value;save();}
  else if(f==='rest'){const v=parseInt(t.value);if(v>0){S.settings[t.dataset.k]=v;save();}}
+ else if(f==='mealTgt'){ensureMeals();const v=num(t.value);if(v!=null&&v>0){S.meals.targets[t.dataset.k]=v;save();}}
  else if(f==='cue'){const k=t.dataset.n;if(t.value.trim())S.cues[k]=t.value;else delete S.cues[k];save();}
  else if(f==='rtName'){S.routines[+t.dataset.r].name=t.value;save();}
  else if(f==='rtHint'){S.routines[+t.dataset.r].hint=t.value;save();}
@@ -892,7 +907,7 @@ function cueList(){const seen=new Set(),list=[];const add=n=>{const k=nKey(n);if
  return '<div class="card">'+list.map(n=>`<label class="lbl">${esc(n)} · <a style="color:var(--bl)" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${encodeURIComponent(n+' exercise form')}">YouTube ↗</a></label><textarea data-f="cue" data-n="${esc(nKey(n))}" rows="2" placeholder="Your cues for ${esc(n)}">${esc(S.cues[nKey(n)]||'')}</textarea>`).join('')+'</div>';}
 
 // ---- MEALS (Youfoodz plan + daily log + barcode) ----
-const MEAL_TARGETS={kcal:2450,protein:180};
+const MEAL_TARGETS={kcal:2450,protein:180,carbs:250,fat:70};
 /* S.meals.delivery shape (refresh each weekly Youfoodz order):
  * {
  *   week: '2026-W40', status: 'Delivered',
@@ -1199,18 +1214,25 @@ function dayEatenTotals(k){
 }
 function dayPlannedTotals(k){return sumMacros(dayPlan(k).items||[]);}
 function macroBar(tot){
- const t=S.meals.targets||MEAL_TARGETS;
- const pk=Math.min(100,Math.round(tot.kcal/t.kcal*100)),pp=Math.min(100,Math.round(tot.protein/t.protein*100));
- const kc=tot.kcal>=t.kcal-100&&tot.kcal<=t.kcal+150?'good':(tot.kcal>t.kcal+150?'bad':'');
- const pc=tot.protein>=t.protein-10?'good':(tot.protein<t.protein-40?'bad':'');
- return `<div class="card" style="padding:10px 12px"><div class="hrow"><b>Today's totals</b><span class="muted">target ${t.kcal} kcal · ${t.protein}g P</span></div>
-  <div class="grid2" style="margin-top:8px">
-   <div><div class="muted" style="font-size:12px">Calories</div><div class="stat ${kc}" style="font-size:22px">${Math.round(tot.kcal)}</div>
-    <div style="height:6px;background:var(--card2);border-radius:4px;margin-top:4px"><div style="height:6px;width:${pk}%;background:var(--ac);border-radius:4px"></div></div></div>
-   <div><div class="muted" style="font-size:12px">Protein</div><div class="stat ${pc}" style="font-size:22px">${Math.round(tot.protein*10)/10}g</div>
-    <div style="height:6px;background:var(--card2);border-radius:4px;margin-top:4px"><div style="height:6px;width:${pp}%;background:var(--bl);border-radius:4px"></div></div></div>
-  </div>
-  <div class="muted" style="margin-top:8px">Carbs ${Math.round(tot.carbs)}g · Fat ${tot.fat?Math.round(tot.fat)+'g':'—'}</div></div>`;
+ ensureMeals();
+ const t=Object.assign({},MEAL_TARGETS,S.meals.targets||{});
+ const rows=[
+  {key:'kcal',label:'Calories',unit:'',goal:Math.max(1,n0(t.kcal)||MEAL_TARGETS.kcal),cur:n0(tot.kcal),round:v=>Math.round(v)},
+  {key:'protein',label:'Protein',unit:'g',goal:Math.max(1,n0(t.protein)||MEAL_TARGETS.protein),cur:n0(tot.protein),round:v=>Math.round(v*10)/10},
+  {key:'carbs',label:'Carbs',unit:'g',goal:Math.max(1,n0(t.carbs)||MEAL_TARGETS.carbs),cur:n0(tot.carbs),round:v=>Math.round(v)},
+  {key:'fat',label:'Fat',unit:'g',goal:Math.max(1,n0(t.fat)||MEAL_TARGETS.fat),cur:n0(tot.fat),round:v=>Math.round(v*10)/10}
+ ];
+ const body=rows.map(r=>{
+  const pct=r.goal?r.cur/r.goal*100:0;
+  const w=Math.min(100,Math.round(pct));
+  const cls=pct>=115?'way':(pct>=90?'near':'');
+  const u=r.unit;
+  return `<div class="mr"><span class="lbl">${r.label}</span>
+   <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="${r.goal}" aria-valuenow="${r.round(r.cur)}" aria-label="${r.label}"><div class="fill ${cls}" style="width:${w}%"></div></div>
+   <span class="vals">${r.round(r.cur)}${u} / ${r.round(r.goal)}${u}</span></div>`;
+ }).join('');
+ return `<div class="card" style="padding:10px 12px"><div class="hrow"><b>Daily macros</b><span class="muted">vs goals</span></div>
+  <div class="mbar">${body}</div></div>`;
 }
 function slotLabel(s){return ({breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snack:'Snack',treat:'Treat'}[s]||s||'Meal');}
 function findYf(id){ensureMeals();return (S.meals.delivery.items||[]).find(x=>x.id===id)||null;}
