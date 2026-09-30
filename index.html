@@ -130,12 +130,22 @@ svg.chart{width:100%;height:auto;display:block;background:#0b0d11;border-radius:
 details summary{font-weight:700;font-size:17px;min-height:48px;display:flex;align-items:center;cursor:pointer}
 .dt td{padding:4px 8px 4px 0}
 
-.sw{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;background:var(--card2);border-radius:12px;border:1px solid var(--line)}
+.sw{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;background:var(--card2);border-radius:12px;border:1px solid var(--line);flex-wrap:wrap}
 .sw.running{border-color:var(--ac);background:#10261a}
+.sw.ready{border-color:var(--wa);background:#2a2410}
+.sw.resting{border-color:var(--mu);opacity:.95}
 .sw .swlab{font-size:12px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.04em;flex:0 0 auto}
 .sw .swtt{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;flex:1;min-width:4.2em;letter-spacing:.02em}
 .sw.running .swtt{color:var(--ac)}
+.sw.ready .swtt{color:var(--wa)}
+.sw .swmsg{flex:1 1 100%;font-size:13px;font-weight:600;color:var(--mu);margin-top:-2px}
+.sw.ready .swmsg{color:var(--wa)}
+.sw.running .swmsg{color:var(--ac)}
 .sw .btn{min-height:44px;padding:6px 12px;flex:0 0 auto}
+.sw .btn.primary{background:var(--ac);color:#04140a;border-color:var(--ac);font-weight:800}
+.timer .tmsg{font-size:12px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.03em;margin-right:2px}
+.timer.fin .tmsg,.timer.fin .tt{color:#ffb4b4}
+.timer #tActs{display:flex;gap:6px;align-items:center;flex:0 0 auto}
 .sessclock{display:flex;align-items:baseline;gap:10px;margin:8px 0;padding:10px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px}
 .sessclock .muted{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .sessclock b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ac)}
@@ -144,10 +154,12 @@ details summary{font-weight:700;font-size:17px;min-height:48px;display:flex;alig
 <body>
 <main id="app"></main>
 <div id="timer" class="timer hidden">
-  <span>⏱</span><span class="tt" id="tt">1:30</span>
-  <button class="btn sm" data-a="tAdj" data-d="-15">−15</button>
-  <button class="btn sm" data-a="tAdj" data-d="15">+15</button>
-  <button class="btn sm" data-a="tStop">Skip</button>
+  <span class="tmsg" id="tLab">Rest</span><span class="tt" id="tt">1:30</span>
+  <div id="tActs">
+    <button class="btn sm" data-a="tAdj" data-d="-15">−15</button>
+    <button class="btn sm" data-a="tAdj" data-d="15">+15</button>
+    <button class="btn sm" data-a="tStop">Skip</button>
+  </div>
 </div>
 <nav id="nav"></nav>
 <input type="file" id="imp" accept="application/json,.json" hidden>
@@ -370,12 +382,28 @@ function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
    <input inputmode="numeric" data-f="r" data-i="${i}" data-j="${j}" value="${esc(st.r)}" placeholder="${esc(pr||'reps')}" aria-label="reps">
    <button class="tick" data-a="tick" data-i="${i}" data-j="${j}" aria-label="set done">✓</button></div>`;});}
  if(e.press)h+=`<div class="pain"><span class="grow">Pain (0–10)</span><button class="btn sm" data-a="pain" data-i="${i}" data-d="-1">−</button><span class="v ${e.pain>3?'hi':''}">${e.pain==null?'–':e.pain}</span><button class="btn sm" data-a="pain" data-i="${i}" data-d="1">+</button></div>`;
- const rest=e.main?S.settings.restMain:S.settings.rest;
+ const rest=restSecFor(e);
+ const nextJ=nextOpenSet(e);
+ const allDone=!e.cardio&&e.sets.every(st=>st.done);
  const swOn=!!e._swOn;
- h+=`<div class="sw ${swOn?'running':''}"><span class="swlab">Work</span><span class="swtt" id="sw${i}">${fmtMMSS(swNow(e))}</span>
-  <button class="btn sm" data-a="${swOn?'swPause':'swStart'}" data-i="${i}">${swOn?'Pause':'Start'}</button>
-  <button class="btn sm" data-a="swReset" data-i="${i}">Reset</button></div>`;
- h+=`<div class="tools">${e.cardio?'':`<button class="btn sm" data-a="addSet" data-i="${i}">+ Set</button><button class="btn sm" data-a="delSet" data-i="${i}">− Set</button><button class="btn sm" data-a="rest" data-s="${rest}">⏱ ${rest}s</button>`}
+ const resting=tInt&&tExIdx===i&&!tAwaitStart;
+ const ready=tAwaitStart&&tExIdx===i;
+ let swCls=swOn?'running':ready?'ready':resting?'resting':'';
+ let swMsg='';
+ if(e.cardio)swMsg='';
+ else if(swOn)swMsg=`Set ${(nextJ>=0?nextJ:e.sets.length-1)+1} · working — tick ✓ when done`;
+ else if(ready)swMsg='Rest done — start next set';
+ else if(resting)swMsg=`Resting ${rest}s · next set when timer hits 0`;
+ else if(allDone)swMsg='All sets done';
+ else if(nextJ===0)swMsg='Tap Start set to begin work timer';
+ else swMsg=`Ready for set ${nextJ+1}`;
+ if(!e.cardio){
+  h+=`<div class="sw ${swCls}" id="swrow${i}"><span class="swlab">Work</span><span class="swtt" id="sw${i}">${fmtMMSS(swNow(e))}</span>`;
+  if(!allDone&&!swOn)h+=`<button class="btn sm primary" data-a="swStart" data-i="${i}">Start set</button>`;
+  else if(swOn)h+=`<button class="btn sm" data-a="swPause" data-i="${i}">Pause</button>`;
+  h+=`${swMsg?`<div class="swmsg">${swMsg}</div>`:''}</div>`;
+ }
+ h+=`<div class="tools">${e.cardio?'':`<button class="btn sm" data-a="addSet" data-i="${i}">+ Set</button><button class="btn sm" data-a="delSet" data-i="${i}">− Set</button><button class="btn sm" data-a="rest" data-s="${rest}" data-i="${i}">⏱ Rest ${rest}s</button>`}
   <button class="btn sm" data-a="exNote" data-i="${i}">📝${e.notes?' ✓':''}</button><button class="btn sm" data-a="exMove" data-i="${i}" aria-label="move up">↑</button><button class="btn sm danger" data-a="delEx" data-i="${i}">✕</button></div>`;
  if(e.notes||e._showNote)h+=`<textarea data-f="exNotes" data-i="${i}" rows="2" style="margin-top:8px" placeholder="Exercise notes (seat height, grip…)">${esc(e.notes)}</textarea>`;
  return h+'</div>';}
@@ -398,25 +426,46 @@ function exModal(target){const names=allExerciseNames();
  const n=document.getElementById('mName');n.addEventListener('change',()=>{const t=findTemplate(n.value);if(t){mSets.value=t.sets;mReps.value=t.reps;mPress.checked=t.press;mMain.checked=t.main;mAbs.checked=t.abs;mCardio.checked=t.cardio;}});}
 function findTemplate(name){const n=name.trim().toLowerCase();for(const p of S.plan)for(const e of p.exercises)if(e.name.toLowerCase()===n)return e;return null;}
 
-// ---- rest timer ----
-let tEnd=0,tInt=null,audio=null,wakeLock=null;
+// ---- rest timer (guided set → rest → next set) ----
+let tEnd=0,tInt=null,tExIdx=null,tAwaitStart=false,audio=null,wakeLock=null;
 function beep(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();[0,.25,.5].forEach(d=>{const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=880;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.3,audio.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d+.2);o.start(audio.currentTime+d);o.stop(audio.currentTime+d+.2);});}catch(e){}}
-function startTimer(sec){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();}catch(e){}
- tEnd=Date.now()+sec*1000;const el=document.getElementById('timer');el.classList.remove('hidden','fin');clearInterval(tInt);tInt=setInterval(tick,250);tick();}
-function tick(){const el=document.getElementById('timer'),left=Math.round((tEnd-Date.now())/1000);
- if(left<=0){document.getElementById('tt').textContent='Rest done!';if(!el.classList.contains('fin')){el.classList.add('fin');if(navigator.vibrate)navigator.vibrate([400,150,400,150,400]);beep();setTimeout(()=>{if(el.classList.contains('fin'))stopTimer()},6000);}return;}
- document.getElementById('tt').textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');}
-function stopTimer(){clearInterval(tInt);tInt=null;const el=document.getElementById('timer');el.classList.add('hidden');el.classList.remove('fin');}
-// ---- exercise stopwatch (work time; separate from rest timer) ----
+function restSecFor(e){return e&&e.main?S.settings.restMain:S.settings.rest;}
+function nextOpenSet(e){if(!e||!e.sets)return -1;return e.sets.findIndex(st=>!st.done);}
+function setTimerActs(mode){const acts=document.getElementById('tActs');if(!acts)return;
+ if(mode==='done'){
+  if(tExIdx!=null)acts.innerHTML=`<button class="btn sm primary" data-a="tStartSet">Start set</button><button class="btn sm" data-a="tStop">Dismiss</button>`;
+  else acts.innerHTML=`<button class="btn sm" data-a="tStop">Dismiss</button>`;}
+ else{acts.innerHTML=`<button class="btn sm" data-a="tAdj" data-d="-15">−15</button><button class="btn sm" data-a="tAdj" data-d="15">+15</button><button class="btn sm" data-a="tStop">Skip</button>`;}}
+function startTimer(sec,exIdx){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();}catch(e){}
+ tExIdx=(exIdx==null||exIdx==='')?null:+exIdx;tAwaitStart=false;tEnd=Date.now()+Math.max(1,sec)*1000;
+ const el=document.getElementById('timer'),lab=document.getElementById('tLab');
+ el.classList.remove('hidden','fin');if(lab)lab.textContent='Rest';setTimerActs('rest');
+ clearInterval(tInt);tInt=setInterval(tick,250);tick();}
+function tick(){const el=document.getElementById('timer'),left=Math.round((tEnd-Date.now())/1000),lab=document.getElementById('tLab');
+ if(left<=0){
+  if(!el.classList.contains('fin')){el.classList.add('fin');tAwaitStart=tExIdx!=null;clearInterval(tInt);tInt=null;setTimerActs('done');
+   if(lab)lab.textContent='Rest done';
+   document.getElementById('tt').textContent=tExIdx!=null?'Start next set':'Rest done!';
+   if(navigator.vibrate)navigator.vibrate([400,150,400,150,400]);beep();
+   if(tExIdx!=null){if(view==='session')render();}
+   else setTimeout(()=>{if(document.getElementById('timer').classList.contains('fin')&&tExIdx==null)stopTimer()},6000);}
+  return;}
+ if(lab)lab.textContent='Rest';document.getElementById('tt').textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');}
+function stopTimer(){clearInterval(tInt);tInt=null;tAwaitStart=false;tExIdx=null;const el=document.getElementById('timer');el.classList.add('hidden');el.classList.remove('fin');setTimerActs('rest');const lab=document.getElementById('tLab');if(lab)lab.textContent='Rest';}
+// ---- exercise work timer (guided; accumulates durationSec) ----
 let clockInt=null;
 function fmtMMSS(sec){sec=Math.max(0,Math.floor(sec||0));return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');}
 function swNow(e){const base=e.durationSec||0;return e._swOn&&e._swT0?base+Math.max(0,Math.floor((Date.now()-e._swT0)/1000)):base;}
 function swFreeze(e){if(e&&e._swOn){e.durationSec=swNow(e);e._swOn=false;delete e._swT0;}}
+function startWork(i){if(!S.active)return;S.active.exercises.forEach((e,j)=>{if(j!==i)swFreeze(e);});
+ const e=S.active.exercises[i];if(!e||e.cardio)return;if(tInt||tAwaitStart)stopTimer();
+ if(!e._swOn){e._swOn=true;e._swT0=Date.now();}ensureClock();}
 function ensureClock(){if(clockInt)return;clockInt=setInterval(tickClocks,250);}
 function stopClock(){clearInterval(clockInt);clockInt=null;}
 function tickClocks(){if(!S.active){stopClock();return;}
  const se=document.getElementById('sessElapsed');if(se)se.textContent=fmtMMSS(Math.floor((Date.now()-S.active.start)/1000));
- S.active.exercises.forEach((e,i)=>{const el=document.getElementById('sw'+i);if(el){el.textContent=fmtMMSS(swNow(e));const row=el.closest('.sw');if(row)row.classList.toggle('running',!!e._swOn);}});}
+ S.active.exercises.forEach((e,i)=>{const el=document.getElementById('sw'+i);if(el){el.textContent=fmtMMSS(swNow(e));const row=document.getElementById('swrow'+i)||el.closest('.sw');
+  if(row){row.classList.toggle('running',!!e._swOn);row.classList.toggle('ready',!!(tAwaitStart&&tExIdx===i));row.classList.toggle('resting',!!(tInt&&tExIdx===i&&!tAwaitStart));}}});}
 async function wake(on){try{if(on&&'wakeLock' in navigator&&!wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>wakeLock=null);}else if(!on&&wakeLock){await wakeLock.release();wakeLock=null;}}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(S.active&&view==='session'){wake(true);tickClocks();}if(tInt)tick();}});
 
@@ -528,18 +577,22 @@ const A={
  logCardio:()=>{const type=document.getElementById('cType').value.trim()||'Cardio',m=num(document.getElementById('cMin').value),kcalRaw=document.getElementById('cKcal').value,kcal=kcalRaw===''||kcalRaw==null?null:num(kcalRaw),d=document.getElementById('cDate').value||todayKey();
   if(!m||m<=0){toast('Enter minutes');return;}if(kcal!=null&&kcal<0){toast('Calories must be ≥ 0');return;}const t=d===todayKey()?Date.now():keyT(d)+2*3600e3;
   S.cardio.push({id:uid(),type,minutes:m,kcal,date:d,t});save();toast(`✓ ${m} min ${type}${kcal!=null?' · '+kcal+' kcal':''}`);render();},
- tick:t=>{const e=S.active.exercises[+t.dataset.i],st=e.sets[+t.dataset.j],row=t.closest('.set');
+ tick:t=>{const i=+t.dataset.i,e=S.active.exercises[i],st=e.sets[+t.dataset.j],row=t.closest('.set');
   if(!st.done){const [wi,ri]=row.querySelectorAll('input');if(st.w===''&&wi.placeholder&&wi.placeholder!=='kg')st.w=wi.placeholder;if(st.r===''&&ri.placeholder&&ri.placeholder!=='reps')st.r=ri.placeholder;
-   st.done=true;startTimer(e.main?S.settings.restMain:S.settings.rest);}else st.done=false;save();render();},
+   st.done=true;swFreeze(e); // end work for this set
+   const more=e.sets.some(x=>!x.done);
+   if(more)startTimer(restSecFor(e),i);else{stopTimer();toast('✓ '+e.name+' done');}
+  }else{st.done=false;if(tExIdx===i)stopTimer();}save();render();},
  tickC:t=>{const e=S.active.exercises[+t.dataset.i];if(!e.done&&!e.minutes)e.minutes=String(parseInt(e.target.reps)||20);e.done=!e.done;save();render();},
  pain:t=>{const e=S.active.exercises[+t.dataset.i];e.pain=Math.max(0,Math.min(10,(e.pain==null?0:e.pain)+ +t.dataset.d));save();render();},
  addSet:t=>{const e=S.active.exercises[+t.dataset.i],l=e.sets[e.sets.length-1];e.sets.push({w:l?l.w:'',r:'',done:false});save();render();},
  delSet:t=>{const e=S.active.exercises[+t.dataset.i];if(e.sets.length>1){e.sets.pop();save();render();}},
- rest:t=>startTimer(+t.dataset.s),
- swStart:t=>{const i=+t.dataset.i;S.active.exercises.forEach((e,j)=>{if(j!==i)swFreeze(e);});
-  const e=S.active.exercises[i];if(!e._swOn){e._swOn=true;e._swT0=Date.now();}save();render();},
+ rest:t=>{const i=t.dataset.i!=null?+t.dataset.i:tExIdx;if(i!=null&&S.active)swFreeze(S.active.exercises[i]);startTimer(+t.dataset.s,i);},
+ swStart:t=>{startWork(+t.dataset.i);save();render();},
  swPause:t=>{swFreeze(S.active.exercises[+t.dataset.i]);save();render();},
  swReset:t=>{const e=S.active.exercises[+t.dataset.i];e.durationSec=0;e._swOn=false;delete e._swT0;save();render();},
+ tStartSet:()=>{const i=tExIdx;stopTimer();if(i==null||!S.active||!S.active.exercises[i])return;startWork(i);save();render();
+  const card=document.getElementById('ex'+i);if(card)card.scrollIntoView({behavior:'smooth',block:'nearest'});},
  exNote:t=>{const e=S.active.exercises[+t.dataset.i];e._showNote=!e._showNote;render();const ta=document.querySelector(`textarea[data-i="${t.dataset.i}"]`);if(ta)ta.focus();},
  exMove:t=>{const i=+t.dataset.i,a=S.active.exercises;if(i>0){[a[i-1],a[i]]=[a[i],a[i-1]];save();render();}},
  delEx:t=>{const i=+t.dataset.i;if(confirm(`Remove ${S.active.exercises[i].name} from this session?`)){S.active.exercises.splice(i,1);save();render();}},
@@ -603,8 +656,8 @@ const A={
  scanDel:async t=>{if(!confirm('Delete this Evolt scan (and its report image)?'))return;S.scans=S.scans.filter(x=>x.id!==t.dataset.id);save();try{await idbDelFull('scan_'+t.dataset.id);}catch(e){}closeModal();toast('Scan deleted');render();},
  demo:t=>demoModal(t.dataset.n),
  demoPause:t=>t.classList.toggle('paused'),
- tAdj:t=>{tEnd=Math.max(Date.now()+1000,tEnd+ +t.dataset.d*1000);document.getElementById('timer').classList.remove('fin');tick();},
- tStop:stopTimer,
+ tAdj:t=>{if(tAwaitStart)return;tEnd=Math.max(Date.now()+1000,tEnd+ +t.dataset.d*1000);document.getElementById('timer').classList.remove('fin');tick();},
+ tStop:()=>{stopTimer();if(view==='session')render();},
  mealDay:t=>{mealDay=t.dataset.d;render();},
  mealTab:t=>{mealTab=t.dataset.v;render();},
  yfEat:t=>toggleYoufoodz(t.dataset.id,t.checked),
