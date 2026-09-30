@@ -91,8 +91,10 @@ label.lbl{display:block;color:var(--mu);font-size:14px;margin:10px 0 4px}
 .pain .v.hi{color:var(--da)}
 .pain .btn{min-width:52px}
 nav{position:fixed;left:0;right:0;bottom:0;background:#12151bf2;backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom));z-index:20}
-nav button{flex:1;background:none;border:0;color:var(--mu);font-size:12px;font-weight:600;min-height:56px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer}
-nav button span{font-size:22px;line-height:1}
+nav button{flex:1;background:none;border:0;color:var(--mu);font-size:10px;font-weight:600;min-height:56px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;padding:4px 2px}
+nav button span{font-size:20px;line-height:1}
+.mealchip{font-size:12px}
+.mi input[type=checkbox]{width:26px;height:26px;min-height:0;flex:0 0 26px;margin-top:4px}
 nav button.on{color:var(--ac);background:#1a2a20}
 nav button.live{color:var(--wa)}
 .timer{position:fixed;left:8px;right:8px;bottom:calc(76px + env(safe-area-inset-bottom));max-width:544px;margin:0 auto;background:#10261a;border:2px solid var(--ac);border-radius:18px;padding:8px 10px;display:flex;align-items:center;gap:8px;z-index:21;box-shadow:0 8px 30px #000a}
@@ -196,11 +198,11 @@ const CARDIO_TYPES=['Walk','Incline treadmill','Bike','Rower','Intervals','Swim'
 const clone=o=>JSON.parse(JSON.stringify(o));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function defaults(){return {version:1,plan:clone(DEFAULT_PLAN),sessions:[],cardio:[],body:[],active:null,routines:clone(DEFAULT_ROUTINES),mobLog:{},backPain:{},scans:[],cues:{},block:{start:null,letter:'A',number:1},settings:{rest:90,restMain:120,lastExport:null}};}
+function defaults(){return {version:1,plan:clone(DEFAULT_PLAN),sessions:[],cardio:[],body:[],active:null,routines:clone(DEFAULT_ROUTINES),mobLog:{},backPain:{},scans:[],cues:{},block:{start:null,letter:'A',number:1},meals:null,settings:{rest:90,restMain:120,lastExport:null}};}
 function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.assign(defaults().settings,s.settings||{});
  ['sessions','cardio','body'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[]}); if(!Array.isArray(s.plan)||!s.plan.length)s.plan=clone(DEFAULT_PLAN);else if(mergeAbsIntoPlan(s.plan))s._absMerged=1; if(!Array.isArray(s.routines)||!s.routines.length)s.routines=clone(DEFAULT_ROUTINES);else{const have=new Set(s.routines.map(r=>r.id));DEFAULT_ROUTINES.forEach(d=>{if(!have.has(d.id))s.routines.push(clone(d));});}
  if(!Array.isArray(s.scans))s.scans=[];
- ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}});if(!s.block||typeof s.block!=='object')s.block={start:null,letter:'A',number:1};s.block.letter=(s.block.letter==='B'?'B':'A');s.block.number=Math.max(1,parseInt(s.block.number)||1);if(s.block.start&&!/^\d{4}-\d{2}-\d{2}$/.test(s.block.start))s.block.start=null;return s;}
+ ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}});if(!s.block||typeof s.block!=='object')s.block={start:null,letter:'A',number:1};s.block.letter=(s.block.letter==='B'?'B':'A');s.block.number=Math.max(1,parseInt(s.block.number)||1);if(s.block.start&&!/^\d{4}-\d{2}-\d{2}$/.test(s.block.start))s.block.start=null;s.meals=s.meals&&typeof s.meals==='object'?s.meals:null;return s;}
 function load(){try{const r=localStorage.getItem(KEY);if(r)return normalize(JSON.parse(r));}catch(e){console.error(e)}return defaults();}
 let S=load();
 if(S._absMerged){delete S._absMerged;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -256,7 +258,7 @@ function allExerciseNames(){const set=new Set();S.plan.forEach(p=>p.exercises.fo
 function toast(msg,ms){const d=document.createElement('div');d.className='toast';d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),ms||2200);}
 function modal(html){closeModal();const bg=document.createElement('div');bg.className='modalbg';bg.id='modal';bg.innerHTML='<div class="modal">'+html+'</div>';
  bg.addEventListener('click',e=>{if(e.target===bg)closeModal()});document.body.appendChild(bg);const f=bg.querySelector('input,textarea');if(f&&!f.dataset.nofocus)setTimeout(()=>f.focus(),50);}
-function closeModal(){const m=document.getElementById('modal');if(m)m.remove();}
+function closeModal(){if(typeof stopBarcode==='function')stopBarcode();const m=document.getElementById('modal');if(m)m.remove();}
 
 // ---- chart ----
 function chart(pts,opt){opt=opt||{};pts=pts.filter(p=>p.y!=null&&isFinite(p.y)).sort((a,b)=>a.t-b.t);
@@ -279,9 +281,9 @@ function chart(pts,opt){opt=opt||{};pts=pts.filter(p=>p.y!=null&&isFinite(p.y)).
 // ---- router ----
 let view='home',viewArg=null,progEx=null;
 function go(v,arg){view=v;viewArg=arg;render();window.scrollTo(0,0);}
-function render(){const V={home:vHome,session:vSession,history:vHistory,detail:vDetail,body:vBody,settings:vSettings,mobility:vMobility,photos:vPhotos}[view]||vHome;
+function render(){const V={home:vHome,session:vSession,history:vHistory,detail:vDetail,body:vBody,settings:vSettings,mobility:vMobility,photos:vPhotos,meals:vMeals}[view]||vHome;
  document.getElementById('app').innerHTML=V();renderNav();if(view==='photos')hydrateFull();}
-function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘','Mobility'],['photos','📸','Photos'],['body','⚖️','Body'],['history','📈','History']];
+function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘','Mobility'],['photos','📸','Photos'],['body','⚖️','Body'],['meals','🍽️','Meals'],['history','📈','History']];
  const cur={home:'train',session:'train',settings:'train',detail:'history'}[view]||view;
  document.getElementById('nav').innerHTML=tabs.map(([v,i,l])=>`<button data-a="nav" data-v="${v}" class="${cur===v?'on':''} ${v==='train'&&S.active&&view!=='session'?'live':''}"><span>${i}</span>${v==='train'&&S.active?'● Train':l}</button>`).join('');}
 
@@ -550,10 +552,38 @@ const A={
  demo:t=>demoModal(t.dataset.n),
  demoPause:t=>t.classList.toggle('paused'),
  tAdj:t=>{tEnd=Math.max(Date.now()+1000,tEnd+ +t.dataset.d*1000);document.getElementById('timer').classList.remove('fin');tick();},
- tStop:stopTimer
+ tStop:stopTimer,
+ mealDay:t=>{mealDay=t.dataset.d;render();},
+ mealTab:t=>{mealTab=t.dataset.v;render();},
+ yfEat:t=>toggleYoufoodz(t.dataset.id,t.checked),
+ mealEat:t=>togglePlanItem(t.dataset.d,t.dataset.id,t.checked),
+ bcScan:()=>openBarcodeScanner(),
+ bcManual:()=>{stopBarcode();modal(`<h2 style="margin-top:0">Enter barcode</h2><input id="bcNum" inputmode="numeric" placeholder="Barcode number" autocomplete="off"><div class="row"><button class="btn grow" data-a="bcClose">Cancel</button><button class="btn primary grow" data-a="bcLookup">Look up</button></div>`);setTimeout(()=>{const i=document.getElementById('bcNum');if(i)i.focus();},80);},
+ bcClose:()=>{stopBarcode();closeModal();},
+ bcLookup:()=>{const n=(document.getElementById('bcNum')||{}).value;stopBarcode();lookupBarcode(n);},
+ bcAmt:t=>{document.getElementById('bcMode').value=t.dataset.m;document.querySelectorAll('#bcAmtMode .btn').forEach(b=>b.classList.toggle('on',b.dataset.m===t.dataset.m));},
+ bcAdd:()=>{const code=(document.getElementById('bcCode')||{}).value||'';const name=(document.getElementById('bcName')||{}).value||'Food';
+  const m=computeBcMacros();if(!m.kcal&&!m.protein){toast('Enter amount');return;}
+  const food={name,kcal:m.kcal,protein:m.protein,carbs:m.carbs,fat:m.fat,barcode:code,source:'off'};
+  if((document.getElementById('bcSaveLib')||{}).checked)saveToLibrary(code,food);
+  stopBarcode();closeModal();addFoodToLog(food);},
+ foodMissAdd:()=>{const name=((document.getElementById('fName')||{}).value||'').trim();if(!name){toast('Enter a name');return;}
+  const food={name,kcal:n0((document.getElementById('fK')||{}).value),protein:n0((document.getElementById('fP')||{}).value),carbs:n0((document.getElementById('fC')||{}).value),fat:(document.getElementById('fF')||{}).value===''?null:n0((document.getElementById('fF')||{}).value),barcode:(document.getElementById('bcCode')||{}).value||null,source:'manual'};
+  if((document.getElementById('bcSaveLib')||{}).checked&&food.barcode)saveToLibrary(food.barcode,food);
+  closeModal();addFoodToLog(food);},
+ foodCustom:()=>customFoodModal(),
+ foodCustomOk:()=>{const name=((document.getElementById('fName')||{}).value||'').trim();if(!name){toast('Enter a name');return;}
+  const food={name,kcal:n0((document.getElementById('fK')||{}).value),protein:n0((document.getElementById('fP')||{}).value),carbs:n0((document.getElementById('fC')||{}).value),fat:(document.getElementById('fF')||{}).value===''?null:n0((document.getElementById('fF')||{}).value),source:'manual'};
+  if((document.getElementById('bcSaveLib')||{}).checked){ensureMeals();const id='custom_'+uid();S.meals.library[id]=Object.assign({barcode:id},food);}
+  closeModal();addFoodToLog(food);},
+ foodLibAdd:t=>{ensureMeals();const f=S.meals.library[t.dataset.id];if(!f)return;showFoodAddModal(Object.assign({barcode:f.barcode||t.dataset.id},f));},
+ foodLibOk:()=>{const mult=n0((document.getElementById('fMult')||{}).value)||1;
+  const food={name:(document.getElementById('fBaseName')||{}).value,kcal:n0((document.getElementById('fBaseK')||{}).value)*mult,protein:n0((document.getElementById('fBaseP')||{}).value)*mult,carbs:n0((document.getElementById('fBaseC')||{}).value)*mult,fat:(document.getElementById('fBaseF')||{}).value===''?null:n0((document.getElementById('fBaseF')||{}).value)*mult,barcode:(document.getElementById('bcCode')||{}).value||null,source:'library'};
+  closeModal();addFoodToLog(food);},
+ foodLogDel:t=>{ensureMeals();const L=dayLog(t.dataset.d);L.splice(+t.dataset.i,1);save();render();}
 };
 function renderKeepOpen(){const open=[...document.querySelectorAll('details')].map(d=>d.open),y=scrollY;render();document.querySelectorAll('details').forEach((d,i)=>d.open=!!open[i]);scrollTo(0,y);}
-document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t)return;const f=A[t.dataset.a];if(f){e.preventDefault();f(t,e);}});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t)return;const f=A[t.dataset.a];if(f){if(t.type!=='checkbox'&&t.type!=='radio')e.preventDefault();f(t,e);}});
 document.addEventListener('input',e=>{const t=e.target,f=t.dataset.f;
  if(t.id==='phDate'){phForm.date=t.value;if(phForm.kg==null){const k=document.getElementById('phKg');if(k)k.value=bodyOn(t.value);}}else if(t.id==='phKg')phForm.kg=t.value;else if(t.id==='phNote')phForm.note=t.value;
  if(!f)return;
@@ -848,6 +878,430 @@ function cueList(){const seen=new Set(),list=[];const add=n=>{const k=nKey(n);if
  S.plan.forEach(p=>p.exercises.forEach(e=>add(e.name)));S.routines.forEach(r=>r.items.forEach(i=>add(i.name)));S.sessions.forEach(x=>x.exercises.forEach(e=>add(e.name)));
  if(!list.length)return '<div class="card muted">Every exercise in your plan and routines has a built-in demo.</div>';
  return '<div class="card">'+list.map(n=>`<label class="lbl">${esc(n)} · <a style="color:var(--bl)" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${encodeURIComponent(n+' exercise form')}">YouTube ↗</a></label><textarea data-f="cue" data-n="${esc(nKey(n))}" rows="2" placeholder="Your cues for ${esc(n)}">${esc(S.cues[nKey(n)]||'')}</textarea>`).join('')+'</div>';}
+
+// ---- MEALS (Youfoodz plan + daily log + barcode) ----
+const MEAL_TARGETS={kcal:2450,protein:180};
+/* S.meals.delivery shape (refresh each weekly Youfoodz order):
+ * {
+ *   week: '2026-W41',          // ISO week id — when this changes, items replace
+ *   date: '2026-10-07',        // delivery date YYYY-MM-DD
+ *   area: 'Cecil Park 2178',   // optional
+ *   items: [{                  // replace this array for a new order
+ *     id, name, kcal, protein, carbs?, fat?,
+ *     assignDay?, assignSlot?, // optional plan day/slot for auto-totals
+ *     flag?,                   // e.g. tomato risk note
+ *     eaten: false             // tick → macros count on assignDay via plan mirror
+ *   }]
+ * }
+ * To load a new week: set S.meals.delivery = {week, date, area, items:[...]} (eaten reset),
+ * or call applyYoufoodzDelivery({week,date,area,items}). Plan days may be updated separately.
+ */
+const YF_ITEMS=[
+ {id:'yf-portuguese',name:'Portuguese Chicken & Rice',kcal:718,protein:44.9,carbs:86.5,assignDay:'2026-10-07',assignSlot:'dinner',flag:'Tomato risk — check ingredients / skip if tomato-heavy'},
+ {id:'yf-alfredo',name:'Creamy Chicken Alfredo',kcal:626,protein:40.7,carbs:59.8,assignDay:'2026-10-08',assignSlot:'dinner'},
+ {id:'yf-mushroom',name:'Creamy Mushroom Chicken',kcal:295,protein:21.1,carbs:28.3,assignDay:'2026-10-09',assignSlot:'dinner'},
+ {id:'yf-doubleup',name:'Sliced Chicken Breast Double Up',kcal:224,protein:42.9,carbs:3.2,assignDay:'2026-10-09',assignSlot:'dinner'},
+ {id:'yf-carbonara',name:'Chicken Carbonara',kcal:542,protein:41,carbs:54.4,assignDay:'2026-10-10',assignSlot:'lunch'},
+ {id:'yf-penne',name:'Chicken & Spinach Penne',kcal:515,protein:41.5,carbs:47.2,assignDay:'2026-10-11',assignSlot:'lunch'}
+];
+function mkPlanItem(id,name,slot,kcal,protein,carbs,source,extra){
+ const o={id,name,slot,kcal,protein,carbs:carbs==null?null:carbs,source:source||'home',eaten:false};
+ if(extra)Object.keys(extra).forEach(k=>o[k]=extra[k]);
+ return o;
+}
+function defaultMeals(){
+ const days={};
+ // Mon 5 Oct — Upper, late shift (pre-delivery, home)
+ days['2026-10-05']={notes:'Upper A · work 12–9 · late dinner. Delivery Wed.',items:[
+  mkPlanItem('m05-bf','Oats 60g + high-pro milk + banana + whey','breakfast',520,42,55,'home'),
+  mkPlanItem('m05-sn1','YoPRO yoghurt + honey','snack',220,27,22,'home'),
+  mkPlanItem('m05-lu','Chicken wrap + cheese + salad veg (no tomato)','lunch',560,48,45,'home'),
+  mkPlanItem('m05-sn2','Protein shake + 2 rice cakes + PB','snack',340,32,28,'home'),
+  mkPlanItem('m05-di','Eggs on toast (3) + cheese + spinach — easy post-9pm','dinner',580,38,40,'home'),
+  mkPlanItem('m05-sw','Muscle Nation chocolate protein pudding','snack',160,25,8,'home'),
+  mkPlanItem('m05-tr','Treat allowance (~180 kcal)','treat',180,2,18,'home')
+ ]};
+ // Tue 6 Oct — rest, 8–6
+ days['2026-10-06']={notes:'Rest day · work 8–6. Pre-delivery.',items:[
+  mkPlanItem('m06-bf','3 eggs + 2 toast + avocado','breakfast',520,32,35,'home'),
+  mkPlanItem('m06-sn1','Cottage cheese 200g + honey + berries','snack',280,28,20,'home'),
+  mkPlanItem('m06-lu','Beef mince pasta, creamy mushroom sauce (no tomato)','lunch',650,48,55,'home'),
+  mkPlanItem('m06-sn2','YoPRO + apple','snack',260,26,28,'home'),
+  mkPlanItem('m06-di','Chicken thigh tray-bake + roast potato + broccoli','dinner',620,45,40,'home'),
+  mkPlanItem('m06-sw','Greek yoghurt + honey + cacao','snack',200,18,18,'home'),
+  mkPlanItem('m06-tr','Treat allowance (~170 kcal)','treat',170,1,20,'home')
+ ]};
+ // Wed 7 Oct — Lower + delivery · Portuguese (train, high kcal)
+ days['2026-10-07']={notes:'Lower A · OFF · Youfoodz delivery today (Cecil Park).',items:[
+  mkPlanItem('m07-bf','Weet-Bix ×3 + high-pro milk + whey','breakfast',420,38,45,'home'),
+  mkPlanItem('m07-sn1','YoPRO yoghurt','snack',160,25,10,'home'),
+  mkPlanItem('m07-lu','Chicken sandwich (no tomato) + banana','lunch',480,35,45,'home'),
+  mkPlanItem('m07-di','Youfoodz: Portuguese Chicken & Rice','dinner',718,44.9,86.5,'youfoodz',{yfId:'yf-portuguese',flag:'Tomato risk — check ingredients / skip if tomato-heavy'}),
+  mkPlanItem('m07-sw','Protein pudding','snack',160,25,8,'home'),
+  mkPlanItem('m07-sn2','High-protein milk (250 ml)','snack',150,15,12,'home'),
+  mkPlanItem('m07-tr','Treat allowance (~180 kcal)','treat',180,1,20,'home')
+ ]};
+ // Thu 8 Oct — Upper, late · Alfredo heat-up
+ days['2026-10-08']={notes:'Upper B · work 12–9 · heat Youfoodz after 9pm.',items:[
+  mkPlanItem('m08-bf','Oats + whey + berries + honey','breakfast',450,35,50,'home'),
+  mkPlanItem('m08-sn1','Cottage cheese + rice cakes','snack',250,22,18,'home'),
+  mkPlanItem('m08-lu','Chicken + microwave rice + frozen veg','lunch',520,42,50,'home'),
+  mkPlanItem('m08-sn2','YoPRO yoghurt','snack',160,25,10,'home'),
+  mkPlanItem('m08-di','Youfoodz: Creamy Chicken Alfredo (post-9 heat-up)','dinner',626,40.7,59.8,'youfoodz',{yfId:'yf-alfredo'}),
+  mkPlanItem('m08-sw','Greek yoghurt + honey','snack',180,15,16,'home'),
+  mkPlanItem('m08-tr','Treat allowance (~180 kcal)','treat',180,1,20,'home')
+ ]};
+ // Fri 9 Oct — rest · Mushroom + Double Up protein fix
+ days['2026-10-09']={notes:'Rest · work 8–6. Mushroom is low protein — Double Up fixes it.',items:[
+  mkPlanItem('m09-bf','Eggs + toast + high-pro milk','breakfast',480,35,30,'home'),
+  mkPlanItem('m09-sn1','YoPRO + banana','snack',250,26,28,'home'),
+  mkPlanItem('m09-lu','Chicken wrap + cheese (no tomato)','lunch',520,42,40,'home'),
+  mkPlanItem('m09-di','Youfoodz: Creamy Mushroom Chicken','dinner',295,21.1,28.3,'youfoodz',{yfId:'yf-mushroom'}),
+  mkPlanItem('m09-du','Youfoodz: Sliced Chicken Breast Double Up (protein boost)','dinner',224,42.9,3.2,'youfoodz',{yfId:'yf-doubleup'}),
+  mkPlanItem('m09-side','Microwave rice + frozen veg (with mushroom)','dinner',280,8,50,'home'),
+  mkPlanItem('m09-sw','Protein pudding','snack',160,25,8,'home'),
+  mkPlanItem('m09-tr','Treat allowance (~180 kcal)','treat',180,1,20,'home')
+ ]};
+ // Sat 10 Oct — Lower · Carbonara
+ days['2026-10-10']={notes:'Lower B · OFF · higher carbs around training.',items:[
+  mkPlanItem('m10-bf','Oats + whey + peanut butter','breakfast',520,40,48,'home'),
+  mkPlanItem('m10-sn1','YoPRO yoghurt','snack',160,25,10,'home'),
+  mkPlanItem('m10-lu','Youfoodz: Chicken Carbonara','lunch',542,41,54.4,'youfoodz',{yfId:'yf-carbonara'}),
+  mkPlanItem('m10-sn2','Cottage cheese + honey','snack',220,20,14,'home'),
+  mkPlanItem('m10-di','Steak + baked potato + green salad (no tomato)','dinner',650,48,45,'home'),
+  mkPlanItem('m10-sw','Greek yoghurt + honey','snack',180,15,16,'home'),
+  mkPlanItem('m10-tr','Treat allowance (~180 kcal)','treat',180,1,20,'home')
+ ]};
+ // Sun 11 Oct — optional · Penne
+ days['2026-10-11']={notes:'Optional Sunday pull · OFF.',items:[
+  mkPlanItem('m11-bf','Eggs + toast + avocado + high-pro milk','breakfast',540,36,32,'home'),
+  mkPlanItem('m11-sn1','YoPRO yoghurt','snack',160,25,10,'home'),
+  mkPlanItem('m11-lu','Youfoodz: Chicken & Spinach Penne','lunch',515,41.5,47.2,'youfoodz',{yfId:'yf-penne'}),
+  mkPlanItem('m11-sn2','Protein shake + banana','snack',280,28,28,'home'),
+  mkPlanItem('m11-di','Chicken stir-fry + rice (soy/garlic — no tomato)','dinner',580,42,55,'home'),
+  mkPlanItem('m11-sw','Protein pudding','snack',160,25,8,'home'),
+  mkPlanItem('m11-tr','Treat allowance (~180 kcal)','treat',180,1,20,'home')
+ ]};
+ return {
+  delivery:{week:'2026-W41',date:'2026-10-07',area:'Cecil Park 2178',items:YF_ITEMS.map(x=>Object.assign({eaten:false},x))},
+  planWeekStart:'2026-10-05',
+  days,
+  targets:Object.assign({},MEAL_TARGETS),
+  log:{},
+  library:{}
+ };
+}
+function ensureMeals(){
+ if(!S.meals||typeof S.meals!=='object'){S.meals=defaultMeals();return S.meals;}
+ const d=defaultMeals();
+ // Weekly refresh: if stored week matches seed week, merge eaten flags; if seed is newer/different empty week, replace items.
+ if(!S.meals.delivery||!Array.isArray(S.meals.delivery.items)||!S.meals.delivery.week){
+  S.meals.delivery=clone(d.delivery);
+ }else if(S.meals.delivery.week===d.delivery.week){
+  const byId={};(S.meals.delivery.items||[]).forEach(i=>{if(i&&i.id)byId[i.id]=i;});
+  S.meals.delivery=Object.assign({},d.delivery,{eaten:undefined},S.meals.delivery,{week:d.delivery.week,date:d.delivery.date,area:d.delivery.area||S.meals.delivery.area});
+  S.meals.delivery.items=d.delivery.items.map(def=>{const prev=byId[def.id];return prev?Object.assign({},def,{eaten:!!prev.eaten}):clone(def);});
+ }else{
+  // Different ISO week already stored (user/parent refreshed) — keep user's delivery, don't clobber with seed.
+  S.meals.delivery.items=(S.meals.delivery.items||[]).map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten}));
+ }
+ if(!S.meals.planWeekStart)S.meals.planWeekStart=d.planWeekStart;
+ if(!S.meals.days||typeof S.meals.days!=='object')S.meals.days=d.days;
+ else{
+  Object.keys(d.days).forEach(k=>{
+   if(!S.meals.days[k])S.meals.days[k]=clone(d.days[k]);
+   else{
+    const have=new Set((S.meals.days[k].items||[]).map(i=>i.id));
+    d.days[k].items.forEach(it=>{if(!have.has(it.id))S.meals.days[k].items.push(clone(it));});
+    if(S.meals.days[k].notes==null)S.meals.days[k].notes=d.days[k].notes;
+   }
+  });
+ }
+ S.meals.targets=Object.assign({},MEAL_TARGETS,S.meals.targets||{});
+ if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
+ if(!S.meals.library||typeof S.meals.library!=='object'||Array.isArray(S.meals.library))S.meals.library={};
+ return S.meals;
+}
+let mealDay=null,mealTab='plan'; // plan | log
+let bcStream=null,bcDetector=null,bcLoop=0,bcBusy=false;
+function mealDayKey(){ensureMeals();const tk=todayKey();if(mealDay&&S.meals.days[mealDay])return mealDay;
+ if(S.meals.days[tk])return mealDay=tk;return mealDay=S.meals.planWeekStart;}
+function planDays(){ensureMeals();const s=S.meals.planWeekStart;return Array.from({length:7},(_,i)=>keyAdd(s,i));}
+function dayPlan(k){ensureMeals();return S.meals.days[k]||{items:[],notes:''};}
+function dayLog(k){ensureMeals();if(!Array.isArray(S.meals.log[k]))S.meals.log[k]=[];return S.meals.log[k];}
+function n0(v){const n=num(v);return n==null?0:n;}
+function sumMacros(list){return list.reduce((a,x)=>({kcal:a.kcal+n0(x.kcal),protein:a.protein+n0(x.protein),carbs:a.carbs+n0(x.carbs),fat:a.fat+n0(x.fat)}),{kcal:0,protein:0,carbs:0,fat:0});}
+function dayEatenTotals(k){
+ const plan=(dayPlan(k).items||[]).filter(i=>i.eaten);
+ const log=dayLog(k);
+ return sumMacros(plan.concat(log));
+}
+function dayPlannedTotals(k){return sumMacros(dayPlan(k).items||[]);}
+function macroBar(tot){
+ const t=S.meals.targets||MEAL_TARGETS;
+ const pk=Math.min(100,Math.round(tot.kcal/t.kcal*100)),pp=Math.min(100,Math.round(tot.protein/t.protein*100));
+ const kc=tot.kcal>=t.kcal-100&&tot.kcal<=t.kcal+150?'good':(tot.kcal>t.kcal+150?'bad':'');
+ const pc=tot.protein>=t.protein-10?'good':(tot.protein<t.protein-40?'bad':'');
+ return `<div class="card" style="padding:10px 12px"><div class="hrow"><b>Today's totals</b><span class="muted">target ${t.kcal} kcal · ${t.protein}g P</span></div>
+  <div class="grid2" style="margin-top:8px">
+   <div><div class="muted" style="font-size:12px">Calories</div><div class="stat ${kc}" style="font-size:22px">${Math.round(tot.kcal)}</div>
+    <div style="height:6px;background:var(--card2);border-radius:4px;margin-top:4px"><div style="height:6px;width:${pk}%;background:var(--ac);border-radius:4px"></div></div></div>
+   <div><div class="muted" style="font-size:12px">Protein</div><div class="stat ${pc}" style="font-size:22px">${Math.round(tot.protein*10)/10}g</div>
+    <div style="height:6px;background:var(--card2);border-radius:4px;margin-top:4px"><div style="height:6px;width:${pp}%;background:var(--bl);border-radius:4px"></div></div></div>
+  </div>
+  <div class="muted" style="margin-top:8px">Carbs ${Math.round(tot.carbs)}g · Fat ${tot.fat?Math.round(tot.fat)+'g':'—'}</div></div>`;
+}
+function slotLabel(s){return ({breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snack:'Snack',treat:'Treat'}[s]||s||'Meal');}
+function vMeals(){
+ ensureMeals();
+ const k=mealDayKey(),days=planDays(),del=S.meals.delivery,tot=dayEatenTotals(k),planTot=dayPlannedTotals(k),day=dayPlan(k);
+ const wd=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+ let h=`<h1>Meals</h1><div class="muted">W41 · Youfoodz + home plan · local only</div>`;
+ // Delivery card
+ const yfDone=(del.items||[]).filter(i=>i.eaten).length;
+ h+=`<div class="card hero"><div class="hrow"><b>🍽️ Youfoodz this week</b><span class="muted">${yfDone}/${(del.items||[]).length} eaten</span></div>
+  <div class="muted" style="margin-top:4px">Delivery ${fmtKeyDate(del.date)} · ${esc(del.area||'')} · ${esc(del.week)} — pre-loaded, just tick when you have it (macros auto-count that day)</div>
+  <div style="margin-top:8px">${del.items.map(it=>{
+   const flag=it.flag?`<div class="hint warn" style="margin:4px 0 0">⚠ ${esc(it.flag)}</div>`:'';
+   const ad=it.assignDay?`<span style="color:var(--ac)"> → ${esc(fmtKeyShort(it.assignDay))} ${esc(slotLabel(it.assignSlot||'dinner'))}</span>`:'';
+   return `<label class="chk" style="align-items:flex-start"><input type="checkbox" data-a="yfEat" data-id="${esc(it.id)}" ${it.eaten?'checked':''}>
+    <span><b>${esc(it.name)}</b>${ad}<br><span class="muted">${it.kcal} kcal · ${it.protein}g P${it.carbs!=null?' · '+it.carbs+'g C':''}</span>${flag}</span></label>`;
+  }).join('')}</div></div>`;
+
+ // Day chips
+ h+=`<div class="chips">${days.map((d,i)=>`<button class="btn sm ${d===k?'on':''}" data-a="mealDay" data-d="${d}">${wd[i]} ${fmtKeyShort(d).split(' ')[0]}</button>`).join('')}</div>`;
+ h+=`<div class="seg"><button class="btn ${mealTab==='plan'?'on':''}" data-a="mealTab" data-v="plan">Week plan</button>
+  <button class="btn ${mealTab==='log'?'on':''}" data-a="mealTab" data-v="log">Log / scan</button></div>`;
+ h+=macroBar(tot);
+ h+=`<div class="muted" style="margin:4px 0 8px">Planned (all): ${Math.round(planTot.kcal)} kcal · ${Math.round(planTot.protein)}g P · checked plan items + log count above</div>`;
+ if(day.notes)h+=`<div class="hint up">${esc(day.notes)}</div>`;
+
+ if(mealTab==='plan'){
+  h+=`<div class="card" style="padding:4px 12px">${(day.items||[]).map(it=>{
+   const flag=it.flag?`<div class="hint warn" style="margin:4px 0 0;font-size:12px">⚠ ${esc(it.flag)}</div>`:'';
+   const src=it.source==='youfoodz'?' · Youfoodz':'';
+   return `<label class="chk mi" style="border:0;padding:10px 0;align-items:flex-start"><input type="checkbox" data-a="mealEat" data-d="${k}" data-id="${esc(it.id)}" ${it.eaten?'checked':''}>
+    <span class="grow"><span class="muted" style="font-size:12px">${esc(slotLabel(it.slot))}${src}</span><br><b>${esc(it.name)}</b>
+    <div class="muted">${it.kcal} kcal · ${it.protein}g P${it.carbs!=null?' · '+it.carbs+'g C':''}</div>${flag}</span></label>`;
+  }).join('')||'<div class="muted" style="padding:12px">No plan items.</div>'}</div>`;
+ }else{
+  const log=dayLog(k);
+  h+=`<div class="row"><button class="btn primary grow" data-a="bcScan">📷 Scan barcode</button>
+   <button class="btn grow" data-a="bcManual"># Enter barcode</button></div>
+  <button class="btn wide" data-a="foodCustom">+ Add custom food</button>`;
+  const libKeys=Object.keys(S.meals.library||{});
+  if(libKeys.length)h+=`<details class="card"><summary>Saved foods (${libKeys.length})</summary>`+
+   libKeys.slice(0,40).map(bk=>{const f=S.meals.library[bk];return `<button class="btn sessbtn" data-a="foodLibAdd" data-id="${esc(bk)}"><span>${esc(f.name)}<br><small>${f.kcal} kcal · ${f.protein||0}g P</small></span><small>+ today</small></button>`;}).join('')+'</details>';
+  h+=`<h2>Logged ${fmtKeyShort(k)}</h2>`;
+  if(!log.length)h+=`<div class="card muted">Nothing logged yet. Scan a barcode, enter a number, or add a custom food.</div>`;
+  else h+=`<div class="card list" style="padding:4px 12px">`+log.map((x,i)=>`<div class="item" style="cursor:default"><span><b>${esc(x.name)}</b><br><span class="muted">${Math.round(n0(x.kcal))} kcal · ${n0(x.protein)}g P · ${n0(x.carbs)}g C · ${x.fat!=null?n0(x.fat)+'g F':'—'}${x.barcode?' · #'+esc(x.barcode):''}</span></span>
+   <button class="btn sm danger" data-a="foodLogDel" data-d="${k}" data-i="${i}">✕</button></div>`).join('')+'</div>';
+ }
+ return h;
+}
+function addFoodToLog(entry){
+ ensureMeals();const k=mealDayKey();
+ const row={id:uid(),name:entry.name,kcal:n0(entry.kcal),protein:n0(entry.protein),carbs:n0(entry.carbs),fat:entry.fat==null||entry.fat===''?null:n0(entry.fat),barcode:entry.barcode||null,t:Date.now(),source:entry.source||'manual'};
+ dayLog(k).push(row);save();toast('✓ Added to log');mealTab='log';render();
+}
+function stopBarcode(){
+ bcLoop++;
+ if(bcStream){try{bcStream.getTracks().forEach(t=>t.stop());}catch(e){}bcStream=null;}
+ bcDetector=null;bcBusy=false;
+}
+async function openBarcodeScanner(){
+ stopBarcode();
+ const support=!!(window.BarcodeDetector&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+ modal(`<h2 style="margin-top:0">Scan barcode</h2>
+  <div class="muted">${support?'Point the camera at a food barcode.':'Live camera scan not supported in this browser — use manual entry below.'}</div>
+  ${support?`<div style="position:relative;margin:10px 0;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:3/4;max-height:50vh">
+   <video id="bcVid" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
+   <div id="bcStatus" class="lab" style="position:absolute;left:8px;top:8px;background:#000c;color:#fff;font-size:12px;font-weight:700;padding:4px 8px;border-radius:8px">Starting camera…</div>
+  </div>`:`<div class="hint warn">BarcodeDetector / camera unavailable. Enter the number instead.</div>`}
+  <label class="lbl">Or type barcode</label>
+  <input id="bcNum" inputmode="numeric" placeholder="e.g. 9300657…" autocomplete="off">
+  <div class="row"><button class="btn grow" data-a="bcClose">Close</button>
+  <button class="btn primary grow" data-a="bcLookup">Look up</button></div>`);
+ if(!support){setTimeout(()=>{const i=document.getElementById('bcNum');if(i)i.focus();},80);return;}
+ try{
+  bcStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
+  const v=document.getElementById('bcVid');if(!v){stopBarcode();return;}
+  v.srcObject=bcStream;await v.play();
+  const formats=['ean_13','ean_8','upc_a','upc_e','code_128'];
+  try{bcDetector=new BarcodeDetector({formats});}catch(e){bcDetector=new BarcodeDetector();}
+  const st=document.getElementById('bcStatus');if(st)st.textContent='Scanning…';
+  const my=++bcLoop;
+  const tick=async()=>{
+   if(my!==bcLoop||!bcDetector)return;
+   try{
+    const v2=document.getElementById('bcVid');if(!v2||v2.readyState<2){requestAnimationFrame(tick);return;}
+    if(!bcBusy){
+     bcBusy=true;
+     const codes=await bcDetector.detect(v2);
+     bcBusy=false;
+     if(codes&&codes.length){
+      const raw=(codes[0].rawValue||'').replace(/\D/g,'');
+      if(raw.length>=8){stopBarcode();lookupBarcode(raw);return;}
+     }
+    }
+   }catch(e){bcBusy=false;}
+   if(my===bcLoop)setTimeout(()=>requestAnimationFrame(tick),120);
+  };
+  requestAnimationFrame(tick);
+ }catch(e){
+  const st=document.getElementById('bcStatus');
+  if(st)st.textContent='Camera blocked — type barcode';
+  toast('Camera unavailable: '+(e.message||'permission denied'),3500);
+ }
+}
+function offNutri(p){
+ const n=p.nutriments||{};
+ const kcal100=n['energy-kcal_100g']!=null?n['energy-kcal_100g']:(n['energy_100g']!=null?n['energy_100g']/4.184:null);
+ const prot100=n.proteins_100g,carb100=n.carbohydrates_100g,fat100=n.fat_100g;
+ const servKcal=n['energy-kcal_serving']!=null?n['energy-kcal_serving']:(n.energy_serving!=null?n.energy_serving/4.184:null);
+ return {kcal100,prot100,carb100,fat100,servKcal,servP:n.proteins_serving,servC:n.carbohydrates_serving,servF:n.fat_serving,serving:p.serving_size||null,name:p.product_name||p.generic_name||'Unknown product',brands:p.brands||''};
+}
+async function lookupBarcode(code){
+ code=String(code||'').replace(/\D/g,'');
+ if(code.length<6){toast('Enter a valid barcode');return;}
+ // library hit
+ ensureMeals();
+ if(S.meals.library[code]){showFoodAddModal(Object.assign({barcode:code,source:'library'},S.meals.library[code]));return;}
+ toast('Looking up…');
+ try{
+  const r=await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+'.json',{headers:{'User-Agent':'WorkoutTrackerPWA/1.0 (local)'}});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const d=await r.json();
+  if(d.status!==1||!d.product){showFoodMissModal(code);return;}
+  const nu=offNutri(d.product);
+  showFoodHitModal(code,nu);
+ }catch(e){toast('Lookup failed: '+(e.message||'network'),3500);showFoodMissModal(code);}
+}
+function showFoodHitModal(code,nu){
+ const hasServ=nu.servKcal!=null||(nu.serving&&nu.kcal100!=null);
+ modal(`<h2 style="margin-top:0">${esc(nu.name)}</h2>
+  <div class="muted">${esc(nu.brands)}${nu.brands?' · ':''}#${esc(code)} · Open Food Facts</div>
+  <div class="card" style="margin-top:8px"><div class="muted">Per 100g</div>
+   <b>${nu.kcal100!=null?Math.round(nu.kcal100)+' kcal': '—'} · P ${nu.prot100!=null?nu.prot100:'—'}g · C ${nu.carb100!=null?nu.carb100:'—'}g · F ${nu.fat100!=null?nu.fat100:'—'}g</b>
+   ${nu.serving?`<div class="muted" style="margin-top:6px">Serving: ${esc(nu.serving)}${nu.servKcal!=null?' · ~'+Math.round(nu.servKcal)+' kcal':''}</div>`:''}</div>
+  <label class="lbl">Amount</label>
+  <div class="seg" id="bcAmtMode">
+   <button type="button" class="btn on" data-a="bcAmt" data-m="100">Per 100g ×</button>
+   ${hasServ?`<button type="button" class="btn" data-a="bcAmt" data-m="serv">Servings ×</button>`:''}
+   <button type="button" class="btn" data-a="bcAmt" data-m="g">Grams</button>
+  </div>
+  <input id="bcQty" type="number" inputmode="decimal" min="0" step="0.1" value="${hasServ?'1':'1'}">
+  <input type="hidden" id="bcMode" value="${hasServ?'serv':'100'}">
+  <input type="hidden" id="bcCode" value="${esc(code)}">
+  <input type="hidden" id="bcName" value="${esc(nu.name)}">
+  <input type="hidden" id="bcK100" value="${nu.kcal100!=null?nu.kcal100:''}">
+  <input type="hidden" id="bcP100" value="${nu.prot100!=null?nu.prot100:''}">
+  <input type="hidden" id="bcC100" value="${nu.carb100!=null?nu.carb100:''}">
+  <input type="hidden" id="bcF100" value="${nu.fat100!=null?nu.fat100:''}">
+  <input type="hidden" id="bcKS" value="${nu.servKcal!=null?nu.servKcal:''}">
+  <input type="hidden" id="bcPS" value="${nu.servP!=null?nu.servP:''}">
+  <input type="hidden" id="bcCS" value="${nu.servC!=null?nu.servC:''}">
+  <input type="hidden" id="bcFS" value="${nu.servF!=null?nu.servF:''}">
+  <label class="chk" style="margin-top:8px"><input type="checkbox" id="bcSaveLib" checked> Save to my food library</label>
+  <div class="row"><button class="btn grow" data-a="bcClose">Cancel</button>
+  <button class="btn primary grow" data-a="bcAdd">Add to today</button></div>`);
+ // default mode: servings if available else 100g multiplier
+ if(hasServ){const m=document.getElementById('bcMode');if(m)m.value='serv';
+  document.querySelectorAll('#bcAmtMode .btn').forEach(b=>b.classList.toggle('on',b.dataset.m==='serv'));}
+ else{document.querySelectorAll('#bcAmtMode .btn').forEach(b=>b.classList.toggle('on',b.dataset.m==='100'));}
+}
+function showFoodMissModal(code){
+ modal(`<h2 style="margin-top:0">Not in Open Food Facts</h2>
+  <div class="muted">Barcode #${esc(code)} — enter macros manually. You can save it for next time.</div>
+  <label class="lbl">Name</label><input id="fName" placeholder="Food name">
+  <div class="grid2"><div><label class="lbl">kcal</label><input id="fK" inputmode="decimal" type="number"></div>
+   <div><label class="lbl">Protein g</label><input id="fP" inputmode="decimal" type="number"></div></div>
+  <div class="grid2"><div><label class="lbl">Carbs g</label><input id="fC" inputmode="decimal" type="number"></div>
+   <div><label class="lbl">Fat g</label><input id="fF" inputmode="decimal" type="number"></div></div>
+  <input type="hidden" id="bcCode" value="${esc(code)}">
+  <label class="chk" style="margin-top:8px"><input type="checkbox" id="bcSaveLib" checked> Save barcode → food in library</label>
+  <div class="row"><button class="btn grow" data-a="bcClose">Cancel</button>
+  <button class="btn primary grow" data-a="foodMissAdd">Add to today</button></div>`);
+}
+function showFoodAddModal(f){
+ modal(`<h2 style="margin-top:0">${esc(f.name)}</h2>
+  <div class="muted">${f.barcode?'#'+esc(f.barcode)+' · ':''}${f.kcal} kcal · ${f.protein||0}g P</div>
+  <label class="lbl">Multiplier (e.g. 1 = one serve)</label>
+  <input id="fMult" type="number" inputmode="decimal" min="0" step="0.1" value="1">
+  <input type="hidden" id="fBaseK" value="${n0(f.kcal)}"><input type="hidden" id="fBaseP" value="${n0(f.protein)}">
+  <input type="hidden" id="fBaseC" value="${n0(f.carbs)}"><input type="hidden" id="fBaseF" value="${f.fat==null?'':n0(f.fat)}">
+  <input type="hidden" id="fBaseName" value="${esc(f.name)}"><input type="hidden" id="bcCode" value="${esc(f.barcode||'')}">
+  <div class="row"><button class="btn grow" data-a="bcClose">Cancel</button>
+  <button class="btn primary grow" data-a="foodLibOk">Add to today</button></div>`);
+}
+function customFoodModal(){
+ modal(`<h2 style="margin-top:0">Add custom food</h2>
+  <label class="lbl">Name</label><input id="fName" placeholder="e.g. Homemade chicken wrap">
+  <div class="grid2"><div><label class="lbl">kcal</label><input id="fK" inputmode="decimal" type="number"></div>
+   <div><label class="lbl">Protein g</label><input id="fP" inputmode="decimal" type="number"></div></div>
+  <div class="grid2"><div><label class="lbl">Carbs g</label><input id="fC" inputmode="decimal" type="number"></div>
+   <div><label class="lbl">Fat g (optional)</label><input id="fF" inputmode="decimal" type="number"></div></div>
+  <label class="chk" style="margin-top:8px"><input type="checkbox" id="bcSaveLib"> Also save to library</label>
+  <div class="row"><button class="btn grow" data-a="closeModal">Cancel</button>
+  <button class="btn primary grow" data-a="foodCustomOk">Add to today</button></div>`);
+}
+function syncYfFromPlan(){
+ ensureMeals();
+ const eaten={};
+ Object.keys(S.meals.days||{}).forEach(k=>{(S.meals.days[k].items||[]).forEach(it=>{if(it.yfId)eaten[it.yfId]=!!(eaten[it.yfId]||it.eaten);});});
+ (S.meals.delivery.items||[]).forEach(it=>{if(eaten[it.id]!=null)it.eaten=eaten[it.id];});
+}
+function syncPlanFromYf(yfId,eaten){
+ ensureMeals();
+ Object.keys(S.meals.days||{}).forEach(k=>{(S.meals.days[k].items||[]).forEach(it=>{if(it.yfId===yfId)it.eaten=eaten;});});
+}
+/** Tick a Youfoodz delivery item: mark eaten, mirror onto plan day, macros count via dayEatenTotals. */
+function toggleYoufoodz(yfId,eaten){
+ ensureMeals();
+ const it=(S.meals.delivery.items||[]).find(x=>x.id===yfId);if(!it)return;
+ it.eaten=!!eaten;syncPlanFromYf(yfId,it.eaten);
+ // Jump day chip to assigned day so totals reflect the tick
+ if(it.assignDay&&S.meals.days[it.assignDay])mealDay=it.assignDay;
+ save();
+ toast(it.eaten?('✓ '+it.name+' → totals'):'Unchecked');
+ render();
+}
+function togglePlanItem(day,id,eaten){
+ ensureMeals();const dayObj=S.meals.days[day];if(!dayObj)return;
+ const it=(dayObj.items||[]).find(x=>x.id===id);if(!it)return;
+ it.eaten=!!eaten;if(it.yfId)syncYfFromPlan();save();render();
+}
+function computeBcMacros(){
+ const mode=(document.getElementById('bcMode')||{}).value||'100';
+ const qty=n0((document.getElementById('bcQty')||{}).value)||0;
+ const g=id=>n0((document.getElementById(id)||{}).value);
+ let kcal=0,protein=0,carbs=0,fat=null;
+ if(mode==='serv'){kcal=g('bcKS')*qty;protein=g('bcPS')*qty;carbs=g('bcCS')*qty;fat=g('bcFS')?g('bcFS')*qty:null;
+  // if serving macros missing, fall back from 100g assuming 1 serve ≈ serving grams unknown → use 100g equiv if only kcal_serving
+  if(!g('bcKS')&&g('bcK100')){kcal=g('bcK100')*qty;protein=g('bcP100')*qty;carbs=g('bcC100')*qty;fat=g('bcF100')?g('bcF100')*qty:null;}
+ }else if(mode==='g'){const m=qty/100;kcal=g('bcK100')*m;protein=g('bcP100')*m;carbs=g('bcC100')*m;fat=g('bcF100')?g('bcF100')*m:null;}
+ else{kcal=g('bcK100')*qty;protein=g('bcP100')*qty;carbs=g('bcC100')*qty;fat=g('bcF100')?g('bcF100')*qty:null;}
+ return {kcal,protein,carbs,fat};
+}
+function saveToLibrary(code,food){
+ if(!code)return;ensureMeals();
+ S.meals.library[code]={name:food.name,kcal:n0(food.kcal),protein:n0(food.protein),carbs:n0(food.carbs),fat:food.fat==null?null:n0(food.fat),barcode:code};
+}
+
+/** Replace Youfoodz checklist for a new delivery week. Preserves library/log; resets eaten on new items.
+ *  payload: {week, date, area?, items:[{id,name,kcal,protein,carbs?,assignDay?,assignSlot?,flag?}]} */
+function applyYoufoodzDelivery(payload){
+ ensureMeals();
+ if(!payload||!payload.week||!Array.isArray(payload.items)){toast('Invalid delivery');return;}
+ S.meals.delivery={
+  week:payload.week,date:payload.date||'',area:payload.area||S.meals.delivery.area||'',
+  items:payload.items.map(it=>Object.assign({eaten:false},it,{eaten:false}))
+ };
+ save();toast('✓ Youfoodz '+payload.week+' loaded');render();
+}
+
+
+ensureMeals();
 
 // ---- icons + manifest (generated at runtime so start_url is absolute) ----
 function makeIcon(sz){try{const c=document.createElement('canvas');c.width=c.height=sz;const x=c.getContext('2d'),u=sz/64;
