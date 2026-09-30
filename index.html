@@ -193,7 +193,7 @@ const DEFAULT_ROUTINES=[
   mi('Bodyweight squats','2×10',45,'Controlled tempo, pain-free depth, knees track over toes, brace your core.')]}];
 const ROTATION=['upperA','lowerA','upperB','lowerB'];
 const SCHEDULE={Mon:'upperA',Tue:null,Wed:'lowerA',Thu:'upperB',Fri:null,Sat:'lowerB',Sun:'sunday'};
-const CARDIO_TYPES=['Walk','Incline treadmill','Bike','Rower','Intervals','Swim','Run','Cross-trainer'];
+const CARDIO_TYPES=['Treadmill walk — flat','Treadmill walk — incline','Treadmill run — flat','Treadmill run — incline','StairMaster','Bike'];
 
 const clone=o=>JSON.parse(JSON.stringify(o));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -307,8 +307,9 @@ function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),toda
   <div class="muted" style="margin-top:6px">Mon Upper A · Wed Lower A · Thu Upper B · Sat Lower B · Sun optional pull &amp; conditioning${todays&&planById(todays)?` — <b style="color:var(--ac)">today: ${esc(planById(todays).name)}</b>`:''}</div></div>`;
  h+=`<h2>Start a session</h2>`+S.plan.map(p=>`<button class="btn sessbtn" data-a="start" data-id="${p.id}"><span>${esc(p.name)}</span><small>${p.exercises.length} exercises ›</small></button>`).join('')+
   `<button class="btn sessbtn" data-a="start" data-id="custom"><span>Custom</span><small>build as you go ›</small></button>`;
- h+=`<h2>Log cardio</h2><div class="card"><div class="grid2"><div><label class="lbl">Type</label><input id="cType" list="ctypes" value="Walk"><datalist id="ctypes">${CARDIO_TYPES.map(t=>`<option value="${t}">`).join('')}</datalist></div>
-  <div><label class="lbl">Minutes</label><input id="cMin" inputmode="numeric" type="number" min="1" placeholder="30"></div></div>
+ h+=`<h2>Log cardio</h2><div class="card"><label class="lbl">Type</label><select id="cType">${CARDIO_TYPES.map((t,i)=>`<option value="${esc(t)}" ${i===0?'selected':''}>${esc(t)}</option>`).join('')}</select>
+  <div class="grid2"><div><label class="lbl">Minutes</label><input id="cMin" inputmode="numeric" type="number" min="1" placeholder="30"></div>
+  <div><label class="lbl">Calories burned</label><input id="cKcal" inputmode="numeric" type="number" min="0" step="1" placeholder="machine est."></div></div>
   <label class="lbl">Date</label><input id="cDate" type="date" value="${todayKey()}">
   <button class="btn primary wide" data-a="logCardio">+ Save cardio</button></div>`;
  return h;}
@@ -328,14 +329,14 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  <div class="row" style="margin-top:14px"><button class="btn danger" data-a="discard">Discard</button><button class="btn primary grow" data-a="finish">✓ Finish &amp; save</button></div>`;
  return h;}
 function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
- if(last){const lt=last.cardio?`${last.minutes} min`:doneSets(last).map(x=>`${num(x.w)||0}kg×${x.r||0}`).join(', ');
+ if(last){const lt=last.cardio?`${last.minutes} min${last.kcal!=null&&last.kcal!==''?' · '+last.kcal+' kcal':''}`:doneSets(last).map(x=>`${num(x.w)||0}kg×${x.r||0}`).join(', ');
   hints+=`<div class="last">Last (${fmtShort(last.date)}): ${esc(lt)}${last.press&&last.pain!=null?` · pain ${last.pain}/10`:''}</div>`;
   if(e.press&&last.pain!=null&&last.pain>3)hints+=`<div class="hint warn">⚠ Pain was ${last.pain}/10 last time — keep weight same or lighter</div>`;
   else if(!e.cardio&&hitTop(last))hints+=`<div class="hint up">⬆ Go up in weight — you hit the top of the rep range on all sets</div>`;
  }else hints+=`<div class="last">No previous log</div>`;
  const tags=(e.main?'<span class="tag main">MAIN</span>':'')+(e.abs?'<span class="tag abs">ABS</span>':'')+(e.press?'<span class="tag">PRESS</span>':'')+(e.cardio?'<span class="tag cardio">CARDIO</span>':'');
  let h=`<div class="card ex" id="ex${i}"><h3><span><button class="linkbtn" data-a="demo" data-n="${esc(e.name)}">${esc(e.name)}</button>${tags}</span><span class="muted" style="white-space:nowrap">${e.target.sets}×${esc(e.target.reps)}</span></h3>${hints}`;
- if(e.cardio){h+=`<div class="set ${e.done?'done':''}" style="grid-template-columns:1fr 60px"><input inputmode="numeric" type="number" data-f="min" data-i="${i}" value="${esc(e.minutes)}" placeholder="${topReps(e.target.reps)||parseInt(e.target.reps)||20} min"><button class="tick" data-a="tickC" data-i="${i}">✓</button></div>`;}
+ if(e.cardio){h+=`<div class="set ${e.done?'done':''}" style="grid-template-columns:1fr 1fr 60px"><input inputmode="numeric" type="number" data-f="min" data-i="${i}" value="${esc(e.minutes)}" placeholder="${topReps(e.target.reps)||parseInt(e.target.reps)||20} min" aria-label="minutes"><input inputmode="numeric" type="number" data-f="ckcal" data-i="${i}" value="${esc(e.kcal==null?'':e.kcal)}" placeholder="kcal" aria-label="calories burned"><button class="tick" data-a="tickC" data-i="${i}">✓</button></div>`;}
  else{const ls=last?doneSets(last):[];
   h+=`<div class="sethdr"><span>#</span><span>kg</span><span>reps</span><span>done</span></div>`;
   e.sets.forEach((st,j)=>{const p=ls[j]||ls[ls.length-1]||{};const pr=p.r||topReps(e.target.reps)||'';
@@ -350,7 +351,7 @@ function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
  if(e.notes||e._showNote)h+=`<textarea data-f="exNotes" data-i="${i}" rows="2" style="margin-top:8px" placeholder="Exercise notes (seat height, grip…)">${esc(e.notes)}</textarea>`;
  return h+'</div>';}
 function mkEx(t){const e={name:t.name,press:!!t.press,main:!!t.main,cardio:!!t.cardio,abs:!!t.abs,target:{sets:Math.max(1,parseInt(t.sets)||1),reps:String(t.reps||'')},notes:'',pain:null};
- if(e.cardio){e.minutes='';e.done=false;}else e.sets=Array.from({length:e.target.sets},()=>({w:'',r:'',done:false}));return e;}
+ if(e.cardio){e.minutes='';e.kcal=null;e.done=false;}else e.sets=Array.from({length:e.target.sets},()=>({w:'',r:'',done:false}));return e;}
 function startSession(id){if(S.active&&!confirm('A session is already in progress. Discard it and start a new one?'))return;
  const p=planById(id),bi=blockInfo();
  let raw=p?applyBlockLetter(p.exercises,bi.letter):[];
@@ -400,13 +401,13 @@ function vHistory(){const names=[];const seen=new Set();sortedSessions().forEach
  items.forEach(it=>{const day=dKey(it.t);if(day!==lastDay){h+=`<div class="muted" style="margin-top:10px;font-weight:700">${fmtDate(it.t)}</div>`;lastDay=day;}
   if(it.s){const s=it.s,n=s.exercises.reduce((a,e)=>a+(e.cardio?(e.done?1:0):doneSets(e).length),0),dur=s.end?Math.round((s.end-s.start)/60000):0;
    h+=`<button class="item" data-a="detail" data-id="${s.id}"><span><b>${esc(s.name)}</b><br><span class="muted">${fmtTime(s.start)} · ${n} sets · ${dur} min</span></span><span>›</span></button>`;}
-  else{const c=it.c;h+=`<div class="item"><span><b>🏃 ${esc(c.type)}</b><br><span class="muted">${c.minutes} min cardio</span></span><button class="btn sm danger" data-a="delCardio" data-id="${c.id}">✕</button></div>`;}});
+  else{const c=it.c;const kc=c.kcal!=null&&c.kcal!==''?` · ${c.kcal} kcal`:'';h+=`<div class="item"><span><b>🏃 ${esc(c.type)}</b><br><span class="muted">${c.minutes} min cardio${kc}</span></span><button class="btn sm danger" data-a="delCardio" data-id="${c.id}">✕</button></div>`;}});
  return h+'</div>';}
 function vDetail(){const s=S.sessions.find(x=>x.id===viewArg);if(!s){view='history';return vHistory();}
  const dur=s.end?Math.round((s.end-s.start)/60000):0;
  let h=`<button class="btn sm" data-a="nav" data-v="history">‹ Back</button><h1>${esc(s.name)}</h1><div class="muted">${fmtDate(s.start)} · ${fmtTime(s.start)}${s.end?'–'+fmtTime(s.end):''} · ${dur} min</div>`;
  s.exercises.forEach(e=>{h+=`<div class="card"><h3><span><button class="linkbtn" data-a="demo" data-n="${esc(e.name)}">${esc(e.name)}</button>${e.press?'<span class="tag">PRESS</span>':''}</span><button class="btn sm" data-a="prog" data-n="${esc(e.name)}">📈</button></h3>`;
-  if(e.cardio)h+=`<div>${e.minutes?esc(e.minutes)+' min':'—'}</div>`;
+  if(e.cardio)h+=`<div>${e.minutes?esc(e.minutes)+' min':'—'}${e.kcal!=null&&e.kcal!==''?' · '+esc(e.kcal)+' kcal':''}</div>`;
   else{const d=e.sets;h+=`<table class="dt">${d.map((x,j)=>`<tr style="${x.done?'':'opacity:.4'}"><td class="muted">Set ${j+1}</td><td><b>${esc(x.w||0)} kg × ${esc(x.r||0)}</b></td><td>${x.done?'✓':'skipped'}</td></tr>`).join('')}</table>`;}
   if(e.press&&e.pain!=null)h+=`<div class="muted">Pain: <b style="color:${e.pain>3?'var(--da)':'var(--tx)'}">${e.pain}/10</b></div>`;
   if(e.notes)h+=`<div class="muted">📝 ${esc(e.notes)}</div>`;h+='</div>';});
@@ -478,9 +479,9 @@ const A={
  nav:t=>{let v=t.dataset.v;if(v==='train'){v=S.active?'session':'home';mobFromSession=false;}else if(v!=='mobility')mobFromSession=false;go(v);},
  home:()=>go('home'),
  start:t=>startSession(t.dataset.id),
- logCardio:()=>{const type=document.getElementById('cType').value.trim()||'Cardio',m=num(document.getElementById('cMin').value),d=document.getElementById('cDate').value||todayKey();
-  if(!m||m<=0){toast('Enter minutes');return;}const t=d===todayKey()?Date.now():keyT(d)+2*3600e3;
-  S.cardio.push({id:uid(),type,minutes:m,date:d,t});save();toast(`✓ ${m} min ${type} logged`);render();},
+ logCardio:()=>{const type=document.getElementById('cType').value.trim()||'Cardio',m=num(document.getElementById('cMin').value),kcalRaw=document.getElementById('cKcal').value,kcal=kcalRaw===''||kcalRaw==null?null:num(kcalRaw),d=document.getElementById('cDate').value||todayKey();
+  if(!m||m<=0){toast('Enter minutes');return;}if(kcal!=null&&kcal<0){toast('Calories must be ≥ 0');return;}const t=d===todayKey()?Date.now():keyT(d)+2*3600e3;
+  S.cardio.push({id:uid(),type,minutes:m,kcal,date:d,t});save();toast(`✓ ${m} min ${type}${kcal!=null?' · '+kcal+' kcal':''}`);render();},
  tick:t=>{const e=S.active.exercises[+t.dataset.i],st=e.sets[+t.dataset.j],row=t.closest('.set');
   if(!st.done){const [wi,ri]=row.querySelectorAll('input');if(st.w===''&&wi.placeholder&&wi.placeholder!=='kg')st.w=wi.placeholder;if(st.r===''&&ri.placeholder&&ri.placeholder!=='reps')st.r=ri.placeholder;
    st.done=true;startTimer(e.main?S.settings.restMain:S.settings.rest);}else st.done=false;save();render();},
@@ -590,6 +591,7 @@ document.addEventListener('input',e=>{const t=e.target,f=t.dataset.f;
  if(!f)return;
  if(f==='w'||f==='r'){S.active.exercises[+t.dataset.i].sets[+t.dataset.j][f]=t.value.trim();save();}
  else if(f==='min'){S.active.exercises[+t.dataset.i].minutes=t.value;save();}
+ else if(f==='ckcal'){const v=t.value.trim();S.active.exercises[+t.dataset.i].kcal=v===''?null:(num(v));save();}
  else if(f==='sNotes'){S.active.notes=t.value;save();}
  else if(f==='exNotes'){S.active.exercises[+t.dataset.i].notes=t.value;save();}
  else if(f==='rest'){const v=parseInt(t.value);if(v>0){S.settings[t.dataset.k]=v;save();}}
