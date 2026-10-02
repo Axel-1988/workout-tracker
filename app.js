@@ -988,7 +988,25 @@ const MEAL_FAVOURITES=[
   serving:'40g (≈1⅓ scoops)',
   kcal:152,protein:35.3,carbs:1.4,fat:0.3,sodium:138,
   note:'Whey protein isolate. Mix with water or milk. Values from product nutrition label (per 40g serve).',
-  allergens:'milk'}
+  allergens:'milk'},
+ {id:'fav-maccas-mocha',
+  name:"McDonald's McCafé Mocha — Large, full cream milk",
+  short:'Large mocha',
+  label:'Macca’s mocha · large',
+  button:'+ Large mocha',
+  serving:'1 large (full cream milk)',
+  kcal:356,protein:12.9,carbs:46.4,fat:12,sodium:219,
+  note:'McCafé Australia, large mocha with full cream milk (356 kcal / 1490 kJ). Skim or almond milk will be lower. Source: CalorieKing AU.',
+  allergens:'milk'},
+ {id:'fav-zombie-water',
+  name:'Zombie Labs Protein Water — 1 scoop',
+  short:'Protein water',
+  label:'Zombie Labs · 1 scoop',
+  button:'+ Protein water',
+  serving:'15g (1 scoop) in 250–300 ml water',
+  kcal:50,protein:11.3,carbs:2.2,fat:0,sodium:75,
+  note:'Label per 15g scoop: 209 kJ, 11.3g protein, 2.2g carbs, 0g fat. Tap twice for 2 scoops (≈100 kcal, 22.6g protein).',
+  allergens:'fish'}
 ];
 function favById(id){return MEAL_FAVOURITES.find(x=>x.id===id)||null;}
 function favToLibraryEntry(f){
