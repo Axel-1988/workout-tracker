@@ -47,6 +47,10 @@ label.lbl{display:block;color:var(--mu);font-size:14px;margin:10px 0 4px}
 .tools{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.tools .btn{flex:1 1 72px;padding:6px 4px;min-width:0}
 .hrow{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .seg{display:flex;gap:6px;margin:8px 0}.seg .btn{flex:1;min-height:48px;padding:6px 4px;font-size:15px}.seg .btn.on{background:var(--ac);color:#06210f;border-color:var(--ac)}
+.goals{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+.goals .btn{min-height:56px;font-size:15px;line-height:1.15;padding:8px}
+.goals .btn small{display:block;font-weight:600;opacity:.8}
+.goals .btn.on{background:var(--ac);color:#06210f;border-color:var(--ac)}
 .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin:8px 0}.chips .btn{flex:0 0 auto;font-size:14px;min-height:46px}.chips .btn.on{border-color:var(--ac);color:var(--ac)}
 .mi{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}.mi:last-child{border-bottom:0}
 .mi .tick{width:56px;flex:0 0 56px}.mi.done .tick{background:var(--ac);border-color:var(--ac);color:#06210f}.mi.done b{color:var(--ac)}
