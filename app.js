@@ -206,7 +206,8 @@ function chart(pts,opt){opt=opt||{};pts=pts.filter(p=>p.y!=null&&isFinite(p.y)).
 let view='home',viewArg=null,progEx=null;
 function go(v,arg){view=v;viewArg=arg;render();window.scrollTo(0,0);}
 function render(){const V={home:vHome,session:vSession,history:vHistory,detail:vDetail,body:vBody,settings:vSettings,mobility:vMobility,photos:vPhotos,meals:vMeals}[view]||vHome;
- document.getElementById('app').innerHTML=V();renderNav();if(view==='photos')hydrateFull();if(view==='session'&&S.active){ensureClock();tickClocks();}else stopClock();}
+ document.getElementById('app').innerHTML=V();renderNav();
+ const sug=document.getElementById('sugBox');if(sug)sug.addEventListener('toggle',()=>{sugOpen=sug.open;});if(view==='photos')hydrateFull();if(view==='session'&&S.active){ensureClock();tickClocks();}else stopClock();}
 function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘','Mobility'],['photos','📸','Photos'],['body','⚖️','Body'],['meals','🍽️','Meals'],['history','📈','History']];
  const cur={home:'train',session:'train',settings:'train',detail:'history'}[view]||view;
  document.getElementById('nav').innerHTML=tabs.map(([v,i,l])=>`<button data-a="nav" data-v="${v}" class="${cur===v?'on':''} ${v==='train'&&S.active&&view!=='session'?'live':''}"><span>${i}</span>${v==='train'&&S.active?'● Train':l}</button>`).join('');}
@@ -1325,7 +1326,7 @@ function ensureMeals(){
  });
  return S.meals;
 }
-let mealDay=null,mealTab='plan',mealSlot=null; // plan | log
+let mealDay=null,mealTab='plan',mealSlot=null,sugOpen=false; // plan | log
 const MEAL_SLOTS=[{id:'breakfast',label:'Breakfast'},{id:'lunch',label:'Lunch'},{id:'dinner',label:'Dinner'},{id:'snack',label:'Snacks'}];
 function defaultMealSlot(){
  const h=+new Intl.DateTimeFormat('en-AU',{timeZone:TZ,hour:'numeric',hourCycle:'h23'}).format(new Date());
@@ -1444,23 +1445,23 @@ function vMeals(){
  h+=`<h2>Logged ${fmtKeyShort(k)}</h2>`+renderSlotGroups(logged);
 
  if(mealTab==='plan'){
-  h+=`<h2>Suggestions</h2>`;
   const groups={breakfast:[],lunch:[],dinner:[],snack:[]};
   (day.items||[]).forEach(it=>groups[normSlot(it.slot)].push(it));
-  h+=MEAL_SLOTS.map(s=>{
+  const nSug=(day.items||[]).length;
+  const slots=MEAL_SLOTS.map(s=>{
    const list=groups[s.id];
-   const body=list.length?list.map(it=>{
+   if(!list.length)return '';
+   const body=list.map(it=>{
     const flag=it.flag?`<div class="hint warn" style="margin:4px 0 0;font-size:12px">⚠ ${esc(it.flag)}</div>`:'';
     const fat=it.fat!=null?` · ${it.fat}g F`:'';
-    return `<div class="hrow" style="align-items:flex-start;gap:8px;border-bottom:1px solid var(--line)">
-     <label class="chk mi grow" style="border:0;padding:10px 0;align-items:flex-start"><input type="checkbox" data-a="mealEat" data-d="${k}" data-id="${esc(it.id)}" ${it.eaten?'checked':''}>
-      <span class="grow"><b>${esc(it.name)}</b>
-      <div class="muted">${it.kcal} kcal · ${it.protein}g P${it.carbs!=null?' · '+it.carbs+'g C':''}${fat}</div>${flag}</span></label>
-     <button type="button" class="btn sm" style="margin-top:10px" data-a="mealRecipe" data-kind="plan" data-d="${k}" data-id="${esc(it.id)}" title="Recipe / info" aria-label="Recipe">ⓘ</button>
+    return `<div class="hrow" style="align-items:flex-start;gap:8px">
+     <label class="chk" style="margin-top:10px"><input type="checkbox" data-a="mealEat" data-d="${k}" data-id="${esc(it.id)}" ${it.eaten?'checked':''} aria-label="Log ${esc(it.name)}"></label>
+     <button type="button" class="btn sessbtn grow" data-a="mealRecipe" data-kind="plan" data-d="${k}" data-id="${esc(it.id)}"><span><b>${esc(it.name)}</b><br><small>${it.kcal} kcal · ${it.protein}g P${it.carbs!=null?' · '+it.carbs+'g C':''}${fat}</small>${flag}</span><small>Recipe ›</small></button>
     </div>`;
-   }).join(''):'<div class="muted" style="padding:8px 0">Nothing planned</div>';
-   return `<div class="slothead">${s.label}</div><div class="card" style="padding:4px 12px">${body}</div>`;
+   }).join('');
+   return `<div class="slothead">${s.label}</div>${body}`;
   }).join('');
+  h+=`<details class="card" id="sugBox" ${sugOpen?'open':''}><summary>Suggestions${nSug?' ('+nSug+')':''}</summary>${slots||'<div class="muted">Nothing planned</div>'}</details>`;
  }else{
   h+=`<div class="row"><button class="btn primary grow" data-a="bcScan">📷 Scan barcode</button>
    <button class="btn grow" data-a="bcManual"># Enter barcode</button></div>
