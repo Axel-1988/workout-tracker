@@ -439,7 +439,7 @@ function vSettings(){const le=S.settings.lastExport;
   <label class="lbl">Block start date</label><input type="date" id="blockStart" value="${b.start}">
   <div class="grid2" style="margin-top:8px"><button class="btn" data-a="blockSaveStart">Save start date</button><button class="btn" data-a="blockNext">Start next block (${b.letter}→${b.nextLetter})</button></div>
   <button class="btn wide" data-a="blockReset" style="margin-top:6px">Reset to Block 1A starting today</button>`;})()}</div>
-  <h2>Meal targets</h2><div class="card"><div class="muted" style="margin-bottom:6px">Pick a goal. Calories come from your latest Evolt TEE (or BMR × 1.55). Lose weight is 15% under, build & lose is 5% under, maintain is that number, build muscle is 10% over, bulk is 18% over. A cut never goes under your BMR. Editing the calorie box keeps your number until you pick a goal or add a new scan.</div>
+  <h2>Meal targets</h2><div class="card"><div class="muted" style="margin-bottom:6px">Pick a goal. Calories use your stats, not the Evolt TEE: male, 186 cm, born 16 Nov 1988, your latest weight (or 95 kg), training 4–5 days. Maintenance is resting burn × 1.55. Lose weight is 15% under, build & lose is 5% under, maintain is that number, build muscle is 10% over, bulk is 18% over. Cardio calories you log are taken off that day’s food total. Editing the calorie box keeps your number until you pick a goal.</div>
   ${goalPicker()}
   <div class="grid2">${(()=>{ensureMeals();const t=Object.assign({},MEAL_TARGETS,S.meals.targets||{});return `
    <div><label class="lbl">Calories (kcal)</label><input type="number" inputmode="numeric" min="1" step="10" data-f="mealTgt" data-k="kcal" value="${t.kcal}"></div>
@@ -597,7 +597,7 @@ const A={
  tStop:()=>{stopTimer();if(view==='session')render();},
  mealDay:t=>{mealDay=t.dataset.d;render();},
  mealTab:t=>{mealTab=t.dataset.v;render();},
- goal:t=>{const got=writeGoal(t.dataset.v);if(!got){toast('Add an Evolt scan with BMR or TEE first');return;}save();render();toast(got.label+' · '+got.kcal+' kcal');},
+ goal:t=>{const got=writeGoal(t.dataset.v);if(!got){toast('Could not set that goal');return;}save();render();toast(got.label+' · '+got.kcal+' kcal');},
  mealSlot:t=>{mealSlot=t.dataset.v;render();},
  yfEat:t=>toggleYoufoodz(t.dataset.id,t.checked),
  mealEat:t=>togglePlanItem(t.dataset.d,t.dataset.id,t.checked),
@@ -832,8 +832,10 @@ async function scanSave(id){const date=document.getElementById('sf_date').value;
  else{toast('Compressing report image…');const img=await loadImg(pendingScanImg),full=resizeImg(img,1600,.85);await idbPutFull('scan_'+rec.id,full.url);rec.img=true;rec.pdf=false;}
  pendingScanImg=null;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}}
  const tb=document.getElementById('sf_tobody');if(tb&&tb.checked&&rec.weight&&!S.body.some(b=>b.date===date))S.body.push({date,kg:rec.weight});
- ensureMeals();const mode=(S.meals.targets&&S.meals.targets.goal)||'maintain';const cal=kcalForGoal(mode,rec);
- if(cal){S.meals.targets.goal=mode;S.meals.targets.kcal=cal.kcal;S.meals.targets.kcalScan=rec.id;S.meals.targets.kcalNote=cal.note;S.meals.targets.kcalManual=false;}
+ ensureMeals();
+ if(!S.meals.targets.kcalManual){const mode=S.meals.targets.goal||'maintain';const cal=kcalForGoal(mode,rec.weight?rec:null);
+  if(cal){S.meals.targets.kcal=cal.kcal;S.meals.targets.kcalNote=cal.note;}}
+ const cal=S.meals.targets.kcalManual?null:{kcal:S.meals.targets.kcal,note:S.meals.targets.kcalNote};
  S.scans=S.scans.filter(x=>x.id!==rec.id);S.scans.push(rec);save();closeModal();render();
  const list=sortedScans(),i=list.findIndex(x=>x.id===rec.id),prev=i>0?list[i-1]:null;
  const calLine=cal?`<div class="card" style="margin-top:8px"><b>Daily calories now ${cal.kcal} kcal</b><div class="muted">${esc(cal.note)}</div></div>`:'';
@@ -991,18 +993,31 @@ const GOAL_MODES=[
 ];
 function goalMode(id){return GOAL_MODES.find(m=>m.id===id)||GOAL_MODES.find(m=>m.id==='maintain');}
 function latestEnergyScan(){return sortedScans().filter(x=>(x.tee>=800)||(x.bmr>=800)).pop()||null;}
-function energyBase(sc){if(!sc)return null;
- if(sc.tee>=800)return {base:sc.tee,src:'Evolt TEE'};
- if(sc.bmr>=800)return {base:Math.round(sc.bmr*1.55),src:'Evolt BMR × 1.55'};
- return null;}
-function kcalForGoal(mode,sc){const base=energyBase(sc);if(!base)return null;const m=goalMode(mode);
- let kcal=Math.round(base.base*m.mult/10)*10;
- if(sc.bmr>=800&&kcal<Math.round(sc.bmr/10)*10)kcal=Math.round(sc.bmr/10)*10;
- return {kcal,mode:m.id,label:m.label,note:m.label+' · '+base.src+' · '+fmtKeyShort(sc.date)};}
-function writeGoal(mode,sc){ensureMeals();const scan=sc||latestEnergyScan();const got=kcalForGoal(mode,scan);if(!got)return null;
- const t=S.meals.targets;t.goal=got.mode;t.kcal=got.kcal;t.kcalScan=scan.id;t.kcalNote=got.note;t.kcalManual=false;return got;}
-function goalPicker(){ensureMeals();const cur=S.meals.targets.goal||'maintain',sc=latestEnergyScan();
- return `<div class="goals">${GOAL_MODES.map(m=>{const got=sc?kcalForGoal(m.id,sc):null;return `<button type="button" class="btn ${cur===m.id?'on':''}" data-a="goal" data-v="${m.id}"><b>${m.label}</b><small>${got?got.kcal+' kcal':m.hint}</small></button>`;}).join('')}</div>`;}
+function profileKg(extra){
+ const rows=[];
+ (S.body||[]).forEach(b=>{if(b&&b.kg>=40)rows.push({date:b.date||'',kg:b.kg});});
+ (S.scans||[]).forEach(sc=>{if(sc&&sc.weight>=40)rows.push({date:sc.date||'',kg:sc.weight});});
+ if(extra&&extra.weight>=40)rows.push({date:extra.date||'',kg:extra.weight});
+ rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+ return rows.length?rows[rows.length-1].kg:95;
+}
+function ageYears(dateKey){
+ const d=dateKey||todayKey(),p=d.split('-').map(Number),y=p[0],m=p[1],day=p[2];
+ let age=y-1988; if(m<11||(m===11&&day<16))age--; return Math.max(18,age);
+}
+function mifflin(kg,dateKey){return 10*kg+6.25*186-5*ageYears(dateKey)+5;}
+function kcalForGoal(mode,extra){
+ const kg=profileKg(extra),base=Math.round(mifflin(kg,todayKey())*1.55/10)*10,m=goalMode(mode);
+ let kcal=Math.round(base*m.mult/10)*10;
+ const floor=Math.round(mifflin(kg,todayKey())/10)*10;
+ if(kcal<floor)kcal=floor;
+ const w=Math.round(kg*10)/10;
+ return {kcal,mode:m.id,label:m.label,note:m.label+' · '+w+' kg · 186 cm · gym 4–5 days'};
+}
+function writeGoal(mode){ensureMeals();const got=kcalForGoal(mode);if(!got)return null;
+ const t=S.meals.targets;t.goal=got.mode;t.kcal=got.kcal;t.kcalNote=got.note;t.kcalManual=false;return got;}
+function goalPicker(){ensureMeals();const cur=S.meals.targets.goal||'maintain';
+ return `<div class="goals">${GOAL_MODES.map(m=>{const got=kcalForGoal(m.id);return `<button type="button" class="btn ${cur===m.id?'on':''}" data-a="goal" data-v="${m.id}"><b>${m.label}</b><small>${got.kcal} kcal</small></button>`;}).join('')}</div>`;}
 function evoltKcalOf(sc){return kcalForGoal((S.meals&&S.meals.targets&&S.meals.targets.goal)||'maintain',sc);}
 /* S.meals.delivery shape (refresh each weekly Youfoodz order):
  * {
@@ -1299,8 +1314,7 @@ function ensureMeals(){
  }
  S.meals.targets=Object.assign({},MEAL_TARGETS,S.meals.targets||{});
  if(!S.meals.targets.goal)S.meals.targets.goal='maintain';
- if(!S.meals.targets.kcalManual){const sc=latestEnergyScan();
-  if(sc&&S.meals.targets.kcalScan!==sc.id){const got=kcalForGoal(S.meals.targets.goal,sc);if(got){S.meals.targets.kcal=got.kcal;S.meals.targets.kcalScan=sc.id;S.meals.targets.kcalNote=got.note;}}}
+ if(!S.meals.targets.kcalManual){const got=kcalForGoal(S.meals.targets.goal);if(got){S.meals.targets.kcal=got.kcal;S.meals.targets.kcalNote=got.note;}}
  if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
  if(!S.meals.library||typeof S.meals.library!=='object'||Array.isArray(S.meals.library))S.meals.library={};
  if(!Array.isArray(S.meals.favourites))S.meals.favourites=[];
@@ -1337,19 +1351,27 @@ function dayEatenTotals(k){
  const log=dayLog(k);
  return sumMacros(plan.concat(log).concat(yfEatenOnDay(k)));
 }
+function cardioKcal(k){
+ let n=0;
+ (S.cardio||[]).forEach(c=>{if(c&&c.date===k)n+=n0(c.kcal);});
+ const add=s=>{if(!s||dKey(s.start)!==k)return;(s.exercises||[]).forEach(e=>{if(e.cardio&&e.done)n+=n0(e.kcal);});};
+ (S.sessions||[]).forEach(add);
+ if(S.active)add(S.active);
+ return Math.round(n);
+}
 function dayPlannedTotals(k){return sumMacros(dayPlan(k).items||[]);}
-function macroBar(tot){
+function macroBar(tot,burn,foodKcal){
  ensureMeals();
  const t=Object.assign({},MEAL_TARGETS,S.meals.targets||{});
  const rows=[
-  {key:'kcal',label:'Calories',unit:'',goal:Math.max(1,n0(t.kcal)||MEAL_TARGETS.kcal),cur:n0(tot.kcal),round:v=>Math.round(v)},
+  {key:'kcal',label:burn?'Calories (net)':'Calories',unit:'',goal:Math.max(1,n0(t.kcal)||MEAL_TARGETS.kcal),cur:n0(tot.kcal),round:v=>Math.round(v)},
   {key:'protein',label:'Protein',unit:'g',goal:Math.max(1,n0(t.protein)||MEAL_TARGETS.protein),cur:n0(tot.protein),round:v=>Math.round(v*10)/10},
   {key:'carbs',label:'Carbs',unit:'g',goal:Math.max(1,n0(t.carbs)||MEAL_TARGETS.carbs),cur:n0(tot.carbs),round:v=>Math.round(v)},
   {key:'fat',label:'Fat',unit:'g',goal:Math.max(1,n0(t.fat)||MEAL_TARGETS.fat),cur:n0(tot.fat),round:v=>Math.round(v*10)/10}
  ];
  const body=rows.map(r=>{
   const pct=r.goal?r.cur/r.goal*100:0;
-  const w=Math.min(100,Math.round(pct));
+  const w=Math.max(0,Math.min(100,Math.round(pct)));
   const cls=pct>=115?'way':(pct>=90?'near':'');
   const u=r.unit;
   return `<div class="mr"><span class="lbl">${r.label}</span>
@@ -1358,7 +1380,7 @@ function macroBar(tot){
  }).join('');
  return `<div class="card" style="padding:10px 12px"><div class="hrow"><b>Daily macros</b><span class="muted">vs goals</span></div>
   ${goalPicker()}
-  <div class="mbar">${body}</div>${t.kcalNote&&!t.kcalManual?`<div class="muted" style="margin-top:6px">${esc(t.kcalNote)}</div>`:t.kcalManual?'<div class="muted" style="margin-top:6px">Custom calories. Pick a goal to use the Evolt scan again.</div>':''}</div>`;
+  <div class="mbar">${body}</div>${burn?`<div class="muted" style="margin-top:6px">Food ${Math.round(foodKcal)} kcal · cardio −${burn} kcal</div>`:''}${t.kcalNote&&!t.kcalManual?`<div class="muted" style="margin-top:6px">${esc(t.kcalNote)}</div>`:t.kcalManual?'<div class="muted" style="margin-top:6px">Custom calories. Pick a goal to use your stats again.</div>':''}</div>`;
 }
 function slotLabel(s){return ({breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snack:'Snack',treat:'Treat'}[s]||s||'Meal');}
 function findYf(id){ensureMeals();return (S.meals.delivery.items||[]).find(x=>x.id===id)||null;}
@@ -1384,7 +1406,7 @@ function mealRecipeModal(kind,id,day){
 }
 function vMeals(){
  ensureMeals();
- const k=mealDayKey(),days=planDays(),del=S.meals.delivery,tot=dayEatenTotals(k),planTot=dayPlannedTotals(k),day=dayPlan(k);
+ const k=mealDayKey(),days=planDays(),del=S.meals.delivery,eaten=dayEatenTotals(k),burn=cardioKcal(k),tot=Object.assign({},eaten,{kcal:eaten.kcal-burn}),planTot=dayPlannedTotals(k),day=dayPlan(k);
  const wd=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
  const st=del.status?` · ${esc(del.status)}`:'';
  let h=`<h1>Meals</h1><div class="muted">W40 · Youfoodz checklist + home suggestions · local only</div>`;
@@ -1414,7 +1436,7 @@ function vMeals(){
  h+=`<div class="muted" style="margin:-2px 0 8px">Tick a meal to log it into <b>${esc(slotName(currentSlot()))}</b> on ${esc(fmtKeyShort(k))}. Bars are the full day.</div>`;
  h+=`<div class="seg"><button class="btn ${mealTab==='plan'?'on':''}" data-a="mealTab" data-v="plan">Week plan</button>
   <button class="btn ${mealTab==='log'?'on':''}" data-a="mealTab" data-v="log">Log / scan</button></div>`;
- h+=macroBar(tot);
+ h+=macroBar(tot,burn,eaten.kcal);
  if(day.notes)h+=`<div class="hint up">${esc(day.notes)}</div>`;
  h+=favouritesRow(k);
 
