@@ -760,10 +760,20 @@ async function fillScanFromFile(file){if(!isPdfFile(file)){toast('Numbers are re
  }catch(e){toast('Could not read the PDF. '+(e&&e.message?e.message:''),5000);}}
 async function scanImgExport(){const out=[];for(const sc of S.scans)if(sc.img){try{const f=await idbFull('scan_'+sc.id);if(f)out.push({id:sc.id,full:f});}catch(e){}}return out;}
 const sortedScans=()=>S.scans.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.t||0)-(b.t||0));
-function scanTable(ref,cur){const row=([k,l,u,dir,d])=>{const a=sv(ref,k),b=sv(cur,k);if(a==null&&b==null)return '';
-  let ch='<span class="neu">–</span>';if(a!=null&&b!=null){const dl=b-a,r=+dl.toFixed(d);const cls=r===0||dir===0?'neu':(dl*dir>0?'good':'bad');ch=`<span class="${cls}">${r>0?'▲ +':r<0?'▼ ':''}${r===0?'0':r.toFixed(d)}</span>`;}
-  return `<tr><td>${esc(l)}${u?` <span class="muted">${u}</span>`:''}</td><td class="n muted">${fmtN(a,d)}</td><td class="n">${fmtN(b,d)}</td><td class="n">${ch}</td></tr>`;};
- const main=SCAN_F.map(row).join(''),seg=SEG_F.map(row).join('');
+function scanDelta(ref,cur,spec){const [k,l,u,dir,d]=spec,a=sv(ref,k),b=sv(cur,k);if(a==null&&b==null)return null;
+ if(a==null||b==null)return {l,u,d,a,b,kind:'miss'};
+ const r=+(b-a).toFixed(d);return {l,u,d,a,b,r,kind:r===0?'same':dir===0?'flat':(r*dir>0?'up':'down')};}
+function scanDeltas(ref,cur){return SCAN_F.concat(SEG_F).map(s=>scanDelta(ref,cur,s)).filter(Boolean);}
+function scanChg(x){const sign=x.r>0?'+':'';return sign+x.r.toFixed(x.d)+(x.u?(' '+x.u):'');}
+function scanSummary(ref,cur){const rows=scanDeltas(ref,cur),up=rows.filter(x=>x.kind==='up'),down=rows.filter(x=>x.kind==='down'),flat=rows.filter(x=>x.kind==='flat');
+ const li=xs=>xs.length?xs.map(x=>`<li><b>${esc(x.l)}</b> ${esc(scanChg(x))}</li>`).join(''):'<li class="muted">None</li>';
+ const also=flat.length?`<div class="muted" style="margin-top:8px">Also changed: ${flat.map(x=>esc(x.l)+' '+esc(scanChg(x))).join(' · ')}</div>`:'';
+ return `<div class="scandiff"><div class="upbox"><b>Improved</b><ul>${li(up)}</ul></div><div class="downbox"><b>Gone backwards</b><ul>${li(down)}</ul></div></div>${also}`;}
+function scanTable(ref,cur){const row=x=>{if(!x)return '';
+  let ch='<span class="neu">–</span>';if(x.r!=null){const cls=x.kind==='up'?'good':x.kind==='down'?'bad':'neu';ch=`<span class="${cls}">${x.r>0?'▲ +':x.r<0?'▼ ':''}${x.r===0?'0':x.r.toFixed(x.d)}</span>`;}
+  const rc=x.kind==='up'?'rowgood':x.kind==='down'?'rowbad':'';
+  return `<tr class="${rc}"><td>${esc(x.l)}${x.u?` <span class="muted">${x.u}</span>`:''}</td><td class="n muted">${fmtN(x.a,x.d)}</td><td class="n">${fmtN(x.b,x.d)}</td><td class="n">${ch}</td></tr>`;};
+ const main=SCAN_F.map(s=>row(scanDelta(ref,cur,s))).join(''),seg=SEG_F.map(s=>row(scanDelta(ref,cur,s))).join('');
  return `<table class="cmpt"><tr><th>Metric</th><th class="n">${fmtKeyShort(ref.date)}</th><th class="n">${fmtKeyShort(cur.date)}</th><th class="n">Change</th></tr>${main}${seg?`<tr class="sec"><td colspan="4">Segmental</td></tr>${seg}`:''}</table>`;}
 function vScans(){const sc=sortedScans(),tk=todayKey(),last=sc[sc.length-1],since=last?Math.round((keyT(tk)-keyT(last.date))/864e5):null;
  let h=`<h2>Evolt 360 scans</h2><div class="card"><div class="muted">📅 Rescan every 2–4 weeks at the same time of day — ideally morning, fasted, before training, normal hydration — so results are comparable.</div>
@@ -772,7 +782,7 @@ function vScans(){const sc=sortedScans(),tk=todayKey(),last=sc[sc.length-1],sinc
  if(!sc.length)return h+'<div class="card muted">No scans yet. Add your first Evolt 360 result to track muscle vs fat.</div>';
  if(sc.length>=2){const ref=scanCmp==='first'?sc[0]:sc[sc.length-2],days=Math.round((keyT(last.date)-keyT(ref.date))/864e5);
   h+=`<div class="card" id="scanCmpCard"><h3>Latest vs ${scanCmp==='first'?'first':'previous'}</h3><div class="seg"><button class="btn ${scanCmp==='prev'?'on':''}" data-a="scanCmp" data-v="prev">vs previous</button><button class="btn ${scanCmp==='first'?'on':''}" data-a="scanCmp" data-v="first">vs first</button></div>
-  <div class="muted">${fmtKeyDate(ref.date)} → ${fmtKeyDate(last.date)} · ${days} days · <span class="good">green</span> = muscle up / fat down</div>${scanTable(ref,last)}</div>`;}
+  <div class="muted">${fmtKeyDate(ref.date)} → ${fmtKeyDate(last.date)} · ${days} days</div>${scanSummary(ref,last)}${scanTable(ref,last)}</div>`;}
  else h+=`<div class="card"><h3>Latest scan · ${fmtKeyDate(last.date)}</h3>${scanTable(last,last).replace(/<th class="n">Change<\/th>/,'<th class="n"></th>')}<div class="muted">Add another scan to see changes.</div></div>`;
  [['weight','Weight (kg)'],['smm','Skeletal muscle mass (kg)'],['bfp','Body fat (%)'],['vfl','Visceral fat level']].forEach(([k,l])=>{
   h+=`<div class="card"><h3 style="margin-bottom:6px">${l}</h3>${chart(sc.filter(x=>x[k]!=null).map(x=>({t:keyT(x.date),y:x[k]})),{utc:1})}</div>`;});
@@ -799,7 +809,11 @@ async function scanSave(id){const date=document.getElementById('sf_date').value;
  else{toast('Compressing report image…');const img=await loadImg(pendingScanImg),full=resizeImg(img,1600,.85);await idbPutFull('scan_'+rec.id,full.url);rec.img=true;rec.pdf=false;}
  pendingScanImg=null;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}}
  const tb=document.getElementById('sf_tobody');if(tb&&tb.checked&&rec.weight&&!S.body.some(b=>b.date===date))S.body.push({date,kg:rec.weight});
- S.scans=S.scans.filter(x=>x.id!==rec.id);S.scans.push(rec);save();closeModal();toast('✓ Scan saved');render();}
+ S.scans=S.scans.filter(x=>x.id!==rec.id);S.scans.push(rec);save();closeModal();render();
+ const list=sortedScans(),i=list.findIndex(x=>x.id===rec.id),prev=i>0?list[i-1]:null;
+ if(!prev){toast('✓ Scan saved');return;}
+ modal(`<div class="hrow"><h2 style="margin:0">vs ${fmtKeyShort(prev.date)}</h2><button class="btn sm" data-a="closeModal">Close</button></div>
+ <div class="muted">${fmtKeyDate(prev.date)} → ${fmtKeyDate(rec.date)} · saved</div>${scanSummary(prev,rec)}`);}
 async function scanViewer(id){const sc=S.scans.find(x=>x.id===id);if(!sc)return;
  const rows=SCAN_F.concat(SEG_F).filter(([k])=>sv(sc,k)!=null).map(([k,l,u,,d])=>`<tr><td>${esc(l)}</td><td class="n"><b>${fmtN(sv(sc,k),d)}</b> <span class="muted">${u}</span></td></tr>`).join('');
  modal(`<div class="hrow"><h2 style="margin:0">Evolt · ${fmtKeyShort(sc.date)}</h2><button class="btn sm" data-a="closeModal">Close</button></div><div class="muted">${fmtKeyDate(sc.date)}</div>
