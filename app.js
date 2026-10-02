@@ -439,7 +439,7 @@ function vSettings(){const le=S.settings.lastExport;
   <label class="lbl">Block start date</label><input type="date" id="blockStart" value="${b.start}">
   <div class="grid2" style="margin-top:8px"><button class="btn" data-a="blockSaveStart">Save start date</button><button class="btn" data-a="blockNext">Start next block (${b.letter}→${b.nextLetter})</button></div>
   <button class="btn wide" data-a="blockReset" style="margin-top:6px">Reset to Block 1A starting today</button>`;})()}</div>
-  <h2>Meal targets</h2><div class="card"><div class="muted" style="margin-bottom:6px">Pick a goal. Calories come from your latest Evolt TEE (or BMR × 1.55). Lose weight is 15% under, maintain is that number, build muscle is 10% over, bulk is 18% over. A cut never goes under your BMR. Editing the calorie box keeps your number until you pick a goal or add a new scan.</div>
+  <h2>Meal targets</h2><div class="card"><div class="muted" style="margin-bottom:6px">Pick a goal. Calories come from your latest Evolt TEE (or BMR × 1.55). Lose weight is 15% under, build & lose is 5% under, maintain is that number, build muscle is 10% over, bulk is 18% over. A cut never goes under your BMR. Editing the calorie box keeps your number until you pick a goal or add a new scan.</div>
   ${goalPicker()}
   <div class="grid2">${(()=>{ensureMeals();const t=Object.assign({},MEAL_TARGETS,S.meals.targets||{});return `
    <div><label class="lbl">Calories (kcal)</label><input type="number" inputmode="numeric" min="1" step="10" data-f="mealTgt" data-k="kcal" value="${t.kcal}"></div>
@@ -984,11 +984,12 @@ function cueList(){const seen=new Set(),list=[];const add=n=>{const k=nKey(n);if
 const MEAL_TARGETS={kcal:2450,protein:180,carbs:250,fat:70};
 const GOAL_MODES=[
  {id:'cut',label:'Lose weight',mult:0.85,hint:'15% under'},
+ {id:'recomp',label:'Build & lose',mult:0.95,hint:'5% under'},
  {id:'maintain',label:'Maintain',mult:1,hint:'Evolt need'},
  {id:'build',label:'Build muscle',mult:1.1,hint:'10% over'},
  {id:'bulk',label:'Bulk',mult:1.18,hint:'18% over'}
 ];
-function goalMode(id){return GOAL_MODES.find(m=>m.id===id)||GOAL_MODES[1];}
+function goalMode(id){return GOAL_MODES.find(m=>m.id===id)||GOAL_MODES.find(m=>m.id==='maintain');}
 function latestEnergyScan(){return sortedScans().filter(x=>(x.tee>=800)||(x.bmr>=800)).pop()||null;}
 function energyBase(sc){if(!sc)return null;
  if(sc.tee>=800)return {base:sc.tee,src:'Evolt TEE'};

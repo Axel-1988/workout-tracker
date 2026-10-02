@@ -51,6 +51,7 @@ label.lbl{display:block;color:var(--mu);font-size:14px;margin:10px 0 4px}
 .goals .btn{min-height:56px;font-size:15px;line-height:1.15;padding:8px}
 .goals .btn small{display:block;font-weight:600;opacity:.8}
 .goals .btn.on{background:var(--ac);color:#06210f;border-color:var(--ac)}
+.goals .btn:last-child:nth-child(odd){grid-column:1/-1}
 .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin:8px 0}.chips .btn{flex:0 0 auto;font-size:14px;min-height:46px}.chips .btn.on{border-color:var(--ac);color:var(--ac)}
 .mi{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}.mi:last-child{border-bottom:0}
 .mi .tick{width:56px;flex:0 0 56px}.mi.done .tick{background:var(--ac);border-color:var(--ac);color:#06210f}.mi.done b{color:var(--ac)}
