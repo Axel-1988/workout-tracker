@@ -634,7 +634,7 @@ document.addEventListener('change',e=>{const t=e.target,f=t.dataset.f;
  if(f==='progEx'){progEx=t.value;render();}
  else if(f==='cmpA'||f==='cmpB'){cmp[f==='cmpA'?'a':'b']=t.value;render();}
  else if((t.id==='phCam'||t.id==='phUp')&&t.files.length){addPhotos([...t.files]);}
- else if(t.id==='scanImg'&&t.files.length){pendingScanImg=t.files[0];const l=document.getElementById('scanImgLbl');if(l)l.textContent='📎 '+(t.files[0].name||(isPdfFile(t.files[0])?'PDF':'image'))+' selected';}
+ else if(t.id==='scanImg'&&t.files.length){pendingScanImg=t.files[0];const l=document.getElementById('scanImgLbl');if(l)l.textContent='📎 '+(t.files[0].name||(isPdfFile(t.files[0])?'PDF':'image'))+' selected';fillScanFromFile(pendingScanImg);}
  else if(f==='plc'){S.plan[+t.dataset.p].exercises[+t.dataset.x][t.dataset.k]=t.checked;save();}
  else if(t.id==='imp'&&t.files[0]){const r=new FileReader();r.onload=()=>doImport(r.result);r.readAsText(t.files[0]);}});
 window.addEventListener('storage',e=>{if(e.key===KEY){S=load();render();}});
@@ -735,6 +735,29 @@ const idbDelFull=k=>idbReq('full','readwrite',t=>{t.objectStore('full').delete(k
 const isPdfFile=f=>!!(f&&(f.type==='application/pdf'||/\.pdf$/i.test(f.name||'')));
 function readFileDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('Could not read '+(file.name||'file')));r.readAsDataURL(file);});}
 function pdfBlobUrl(dataUrl){const b64=String(dataUrl).split(',')[1]||'';const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));}
+function loadPdfJs(){if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);return new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=()=>{try{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';res(window.pdfjsLib);}catch(e){rej(e);}};s.onerror=()=>rej(new Error('PDF reader needs internet once'));document.head.appendChild(s);});}
+function evoltFirstNum(s){const m=String(s).replace(/,/g,'').match(/^(\d+(?:\.\d+)?)(?:\s*%)?(?:\s*\/\s*[A-Za-z]+)?(?:\s*kcal)?\s*$/i);return m?+m[1]:null;}
+function evoltDate(s){const iso=String(s).match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/);if(iso)return iso[1]+'-'+iso[2].padStart(2,'0')+'-'+iso[3].padStart(2,'0');const m=String(s).match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/);if(!m)return null;let a=+m[1],b=+m[2],y=m[3];if(a>12)return y+'-'+String(b).padStart(2,'0')+'-'+String(a).padStart(2,'0');if(b>12)return y+'-'+String(a).padStart(2,'0')+'-'+String(b).padStart(2,'0');return y+'-'+String(b).padStart(2,'0')+'-'+String(a).padStart(2,'0');}
+function evoltBelow(items,label){const hits=items.filter(it=>it.y<label.y-1&&label.y-it.y<48&&it.x>=label.x-8&&it.x<label.x+110&&!/^\s*\[/.test(it.s)&&evoltFirstNum(it.s)!=null);hits.sort((a,b)=>b.y-a.y||a.x-b.x);return hits[0]||null;}
+function evoltLabel(items,re,pred){return items.find(it=>re.test(it.s)&&(!pred||pred(it)))||null;}
+function parseEvoltItems(items){const out={};const wt=items.find(it=>/^\d+(?:\.\d+)?\s*(kg|lb)\b/i.test(it.s));if(wt){const m=wt.s.match(/^(\d+(?:\.\d+)?)\s*(kg|lb)\b/i);out.weight=+m[1];out.unit=m[2].toLowerCase();}
+ const dt=items.map(it=>evoltDate(it.s)).find(Boolean);if(dt)out.date=dt;
+ const map=[['lbm',/^LEAN BODY MASS$/],['smm',/^SKELETAL MUSCLE MASS$/],['protein',/^PROTEIN$/],['minerals',/^MINERAL$/],['tbw',/^TOTAL BODY WATER$/],['bfm',/^BODY FAT MASS$/],['vfl',/^VISCERAL FAT LEVEL$/],['bmr',/^BMR$/],['bfp',/^TOTAL BODY FAT PERCENTAGE$/],['bioAge',/^BIO AGE$/]];
+ map.forEach(([k,re])=>{const lab=evoltLabel(items,re,it=>k!=='protein'||it.x<80);if(!lab)return;const v=evoltBelow(items,lab);if(v)out[k]=evoltFirstNum(v.s);});
+ const parts=[['la',/^LEFT ARM$/],['ra',/^RIGHT ARM$/],['tr',/^TORSO$/],['ll',/^LEFT LEG$/],['rl',/^RIGHT LEG$/]];
+ out.seg={};parts.forEach(([k,re])=>{const lab=evoltLabel(items,re);if(!lab)return;const band=items.filter(it=>it.y<lab.y-4&&lab.y-it.y<55&&evoltFirstNum(it.s)!=null&&!/^\s*\[/.test(it.s)&&!/\b(in|cm)\b/i.test(it.s)&&(lab.x<280?it.x<250:it.x>280));band.sort((a,b)=>a.x-b.x);if(band[0])(out.seg[k]=out.seg[k]||{}).lean=evoltFirstNum(band[0].s);if(band[1])(out.seg[k]=out.seg[k]||{}).fat=evoltFirstNum(band[1].s);});
+ if(!Object.keys(out.seg).length)delete out.seg;return out;}
+function evoltToKg(p){if(p.unit!=='lb')return p;const mass=['weight','lbm','smm','protein','minerals','tbw','bfm'];const c=n=>n==null?n:Math.round(n*0.45359237*100)/100;mass.forEach(k=>{if(p[k]!=null)p[k]=c(p[k]);});if(p.seg)Object.keys(p.seg).forEach(k=>['lean','fat'].forEach(f=>{if(p.seg[k][f]!=null)p.seg[k][f]=c(p.seg[k][f]);}));return p;}
+async function evoltItemsFromPdf(file){const pdfjs=await loadPdfJs();const data=new Uint8Array(await file.arrayBuffer());const doc=await pdfjs.getDocument({data}).promise;const page=await doc.getPage(1);const tc=await page.getTextContent();return tc.items.filter(it=>it.str&&it.str.trim()).map(it=>({s:it.str.trim(),x:it.transform[4],y:it.transform[5]}));}
+async function fillScanFromFile(file){if(!isPdfFile(file)){toast('Numbers are read from the Evolt PDF. A photo still attaches, but type the values in.',5000);return;}
+ try{toast('Reading report…');const parsed=evoltToKg(parseEvoltItems(await evoltItemsFromPdf(file)));
+  const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=String(v);};
+  set('sf_date',parsed.date);['weight','smm','bfp','bfm','lbm','vfl','bmr','tbw','protein','minerals','bioAge'].forEach(k=>set('sf_'+k,parsed[k]));
+  let n=['weight','smm','bfp','bfm','lbm','vfl','bmr','tbw','protein','minerals','bioAge','date'].filter(k=>parsed[k]!=null).length;
+  if(parsed.seg){Object.keys(parsed.seg).forEach(k=>['lean','fat'].forEach(f=>{if(parsed.seg[k][f]!=null){set('sf_seg_'+k+'_'+f,parsed.seg[k][f]);n++;}}));const d=document.querySelector('#modal details');if(d)d.open=true;}
+  if(n<3)toast('Could not read this PDF. Type the numbers, or send a clearer Evolt sheet.',5000);
+  else toast('Filled '+n+' fields'+(parsed.unit==='lb'?' (converted from lb to kg)':'')+'. Check them, then save.',5000);
+ }catch(e){toast('Could not read the PDF. '+(e&&e.message?e.message:''),5000);}}
 async function scanImgExport(){const out=[];for(const sc of S.scans)if(sc.img){try{const f=await idbFull('scan_'+sc.id);if(f)out.push({id:sc.id,full:f});}catch(e){}}return out;}
 const sortedScans=()=>S.scans.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.t||0)-(b.t||0));
 function scanTable(ref,cur){const row=([k,l,u,dir,d])=>{const a=sv(ref,k),b=sv(cur,k);if(a==null&&b==null)return '';
@@ -763,7 +786,7 @@ function scanForm(sc){pendingScanImg=null;const v=k=>{const x=sc?sv(sc,k):null;r
  <div class="segf muted" style="font-size:13px"><span></span><span>Lean (kg)</span><span>Fat (kg)</span></div>
  ${SEGS.map(([k,n])=>`<div class="segf"><span>${n}</span><input id="sf_seg_${k}_lean" inputmode="decimal" value="${v('seg.'+k+'.lean')}" aria-label="${n} lean"><input id="sf_seg_${k}_fat" inputmode="decimal" value="${v('seg.'+k+'.fat')}" aria-label="${n} fat"></div>`).join('')}</details>
  <label class="lbl">Notes</label><textarea id="sf_notes" rows="2" placeholder="Time of day, fasted?, hydration…">${esc(sc?sc.notes||'':'')}</textarea>
- <button class="btn wide" data-a="scanImgPick" id="scanImgLbl">📎 ${sc&&sc.img?'Replace':'Attach'} report photo or PDF</button>
+ <button class="btn wide" data-a="scanImgPick" id="scanImgLbl">📎 ${sc&&sc.img?'Replace':'Attach'} report PDF (fills the numbers) or photo</button>
  ${sc?'':`<label class="chk"><input type="checkbox" id="sf_tobody" checked> Also add weight to bodyweight log</label>`}
  <button class="btn primary wide" data-a="scanSave" data-id="${sc?sc.id:''}">✓ Save scan</button>`);}
 async function scanSave(id){const date=document.getElementById('sf_date').value;if(!date){toast('Pick a date');return;}
