@@ -634,7 +634,7 @@ document.addEventListener('change',e=>{const t=e.target,f=t.dataset.f;
  if(f==='progEx'){progEx=t.value;render();}
  else if(f==='cmpA'||f==='cmpB'){cmp[f==='cmpA'?'a':'b']=t.value;render();}
  else if((t.id==='phCam'||t.id==='phUp')&&t.files.length){addPhotos([...t.files]);}
- else if(t.id==='scanImg'&&t.files.length){pendingScanImg=t.files[0];const l=document.getElementById('scanImgLbl');if(l)l.textContent='📎 '+(t.files[0].name||'image')+' selected';}
+ else if(t.id==='scanImg'&&t.files.length){pendingScanImg=t.files[0];const l=document.getElementById('scanImgLbl');if(l)l.textContent='📎 '+(t.files[0].name||(isPdfFile(t.files[0])?'PDF':'image'))+' selected';}
  else if(f==='plc'){S.plan[+t.dataset.p].exercises[+t.dataset.x][t.dataset.k]=t.checked;save();}
  else if(t.id==='imp'&&t.files[0]){const r=new FileReader();r.onload=()=>doImport(r.result);r.readAsText(t.files[0]);}});
 window.addEventListener('storage',e=>{if(e.key===KEY){S=load();render();}});
@@ -732,6 +732,9 @@ const sv=(sc,k)=>{if(k.startsWith('seg.')){const [,g,f]=k.split('.');return sc.s
 const fmtN=(v,d)=>v==null?'–':(+v).toFixed(d);
 const idbPutFull=(k,v)=>idbReq('full','readwrite',t=>{t.objectStore('full').put(v,k);});
 const idbDelFull=k=>idbReq('full','readwrite',t=>{t.objectStore('full').delete(k);});
+const isPdfFile=f=>!!(f&&(f.type==='application/pdf'||/\.pdf$/i.test(f.name||'')));
+function readFileDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('Could not read '+(file.name||'file')));r.readAsDataURL(file);});}
+function pdfBlobUrl(dataUrl){const b64=String(dataUrl).split(',')[1]||'';const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));}
 async function scanImgExport(){const out=[];for(const sc of S.scans)if(sc.img){try{const f=await idbFull('scan_'+sc.id);if(f)out.push({id:sc.id,full:f});}catch(e){}}return out;}
 const sortedScans=()=>S.scans.slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.t||0)-(b.t||0));
 function scanTable(ref,cur){const row=([k,l,u,dir,d])=>{const a=sv(ref,k),b=sv(cur,k);if(a==null&&b==null)return '';
@@ -760,26 +763,29 @@ function scanForm(sc){pendingScanImg=null;const v=k=>{const x=sc?sv(sc,k):null;r
  <div class="segf muted" style="font-size:13px"><span></span><span>Lean (kg)</span><span>Fat (kg)</span></div>
  ${SEGS.map(([k,n])=>`<div class="segf"><span>${n}</span><input id="sf_seg_${k}_lean" inputmode="decimal" value="${v('seg.'+k+'.lean')}" aria-label="${n} lean"><input id="sf_seg_${k}_fat" inputmode="decimal" value="${v('seg.'+k+'.fat')}" aria-label="${n} fat"></div>`).join('')}</details>
  <label class="lbl">Notes</label><textarea id="sf_notes" rows="2" placeholder="Time of day, fasted?, hydration…">${esc(sc?sc.notes||'':'')}</textarea>
- <button class="btn wide" data-a="scanImgPick" id="scanImgLbl">📎 ${sc&&sc.img?'Replace':'Attach'} report photo / screenshot</button>
+ <button class="btn wide" data-a="scanImgPick" id="scanImgLbl">📎 ${sc&&sc.img?'Replace':'Attach'} report photo or PDF</button>
  ${sc?'':`<label class="chk"><input type="checkbox" id="sf_tobody" checked> Also add weight to bodyweight log</label>`}
  <button class="btn primary wide" data-a="scanSave" data-id="${sc?sc.id:''}">✓ Save scan</button>`);}
 async function scanSave(id){const date=document.getElementById('sf_date').value;if(!date){toast('Pick a date');return;}
- const old=id?S.scans.find(x=>x.id===id):null,rec={id:id||uid(),date,t:old?old.t:Date.now(),img:old?!!old.img:false};
+ const old=id?S.scans.find(x=>x.id===id):null,rec={id:id||uid(),date,t:old?old.t:Date.now(),img:old?!!old.img:false,pdf:old?!!old.pdf:false};
  let any=false;SCAN_F.forEach(([k])=>{const n=num(document.getElementById('sf_'+k).value);if(n!=null){rec[k]=n;any=true;}});
  const seg={};SEGS.forEach(([k])=>['lean','fat'].forEach(f=>{const n=num(document.getElementById(`sf_seg_${k}_${f}`).value);if(n!=null){(seg[k]=seg[k]||{})[f]=n;any=true;}}));if(Object.keys(seg).length)rec.seg=seg;
  const notes=document.getElementById('sf_notes').value.trim();if(notes)rec.notes=notes;
  if(!any&&!pendingScanImg&&!notes){toast('Enter at least one value');return;}
- if(pendingScanImg){toast('Compressing report image…');const img=await loadImg(pendingScanImg),full=resizeImg(img,1600,.85);await idbPutFull('scan_'+rec.id,full.url);rec.img=true;pendingScanImg=null;
-  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}}
+ if(pendingScanImg){if(isPdfFile(pendingScanImg)){toast('Saving PDF…');const url=await readFileDataUrl(pendingScanImg);await idbPutFull('scan_'+rec.id,url);rec.img=true;rec.pdf=true;}
+ else{toast('Compressing report image…');const img=await loadImg(pendingScanImg),full=resizeImg(img,1600,.85);await idbPutFull('scan_'+rec.id,full.url);rec.img=true;rec.pdf=false;}
+ pendingScanImg=null;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}}
  const tb=document.getElementById('sf_tobody');if(tb&&tb.checked&&rec.weight&&!S.body.some(b=>b.date===date))S.body.push({date,kg:rec.weight});
  S.scans=S.scans.filter(x=>x.id!==rec.id);S.scans.push(rec);save();closeModal();toast('✓ Scan saved');render();}
 async function scanViewer(id){const sc=S.scans.find(x=>x.id===id);if(!sc)return;
  const rows=SCAN_F.concat(SEG_F).filter(([k])=>sv(sc,k)!=null).map(([k,l,u,,d])=>`<tr><td>${esc(l)}</td><td class="n"><b>${fmtN(sv(sc,k),d)}</b> <span class="muted">${u}</span></td></tr>`).join('');
  modal(`<div class="hrow"><h2 style="margin:0">Evolt · ${fmtKeyShort(sc.date)}</h2><button class="btn sm" data-a="closeModal">Close</button></div><div class="muted">${fmtKeyDate(sc.date)}</div>
  <table class="cmpt">${rows||'<tr><td class="muted">No values</td></tr>'}</table>${sc.notes?`<div class="muted" style="margin-top:8px">📝 ${esc(sc.notes)}</div>`:''}
- ${sc.img?'<img class="full" id="scanFull" alt="Evolt report" style="margin-top:10px;min-height:100px">':''}
+ ${sc.img?(sc.pdf?'<iframe id="scanPdf" title="Evolt report PDF" style="width:100%;height:70vh;border:0;margin-top:10px;background:#fff;border-radius:8px"></iframe><a class="btn wide" id="scanPdfOpen" style="margin-top:8px">Open PDF</a>':'<img class="full" id="scanFull" alt="Evolt report" style="margin-top:10px;min-height:100px">'):''}
  <div class="row"><button class="btn danger" data-a="scanDel" data-id="${sc.id}">Delete</button><button class="btn grow" data-a="scanEdit" data-id="${sc.id}">✎ Edit</button></div>`);
- if(sc.img){try{const u=await idbFull('scan_'+sc.id),el=document.getElementById('scanFull');if(u&&el)el.src=u;}catch(e){}}}
+ if(sc.img){try{const u=await idbFull('scan_'+sc.id);if(!u)return;const pdf=sc.pdf||String(u).indexOf('data:application/pdf')===0;
+  if(pdf){const blob=pdfBlobUrl(u),frame=document.getElementById('scanPdf'),a=document.getElementById('scanPdfOpen');if(frame)frame.src=blob;if(a){a.href=blob;a.target='_blank';}}
+  else{const el=document.getElementById('scanFull');if(el)el.src=u;}}catch(e){}}}
 
 // ---- EXERCISE DEMOS ----
 // img: file prefix in ./img (free-exercise-db, Unlicense). svg: inline diagram key. approx: closest-match note.
