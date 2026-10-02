@@ -57,6 +57,24 @@ const DEFAULT_ROUTINES=[
   mi('Kneeling hip flexor stretch','30s each side',30,'Tuck pelvis, squeeze glute, shift forward gently.'),
   mi('Glute bridge','2×12',45,'Drive through heels, squeeze glutes at top, ribs down.'),
   mi('Bodyweight squats','2×10',45,'Controlled tempo, pain-free depth, knees track over toes, brace your core.')]}];
+const MOB_SWAP={
+ posture:['Chin tucks','Wall angels','Band pull-aparts','Doorway pec stretch','Thoracic extension on foam roller','Open books','Cat-cow','90/90 hip flow','Kneeling hip flexor stretch',"Child's pose",'Band external rotation','Scap push-ups (light)'],
+ back:['Dead bug','Bird dog','Glute bridge','McGill curl-up','Side plank (knees)','Cat-cow',"Child's pose"],
+ wuUpper:['Band external rotation','Band pull-aparts','Scap push-ups (light)','Wall angels','Doorway pec stretch','Chin tucks'],
+ wuLower:['Kneeling hip flexor stretch','Glute bridge','Bodyweight squats','Cat-cow','90/90 hip flow','Bird dog']
+};
+function mobTemplate(name){const k=String(name||'').trim().toLowerCase();for(const r of DEFAULT_ROUTINES){const it=r.items.find(i=>i.name.toLowerCase()===k);if(it)return it;}return null;}
+function openMobSwap(rid,x){const r=routineById(rid),it=r&&r.items[x];if(!it){toast('Exercise missing');return;}
+ const alts=(MOB_SWAP[r.id]||[]).filter(n=>n.toLowerCase()!==it.name.toLowerCase());
+ if(!alts.length){toast('No swap saved for this move');return;}
+ modal(`<h2 style="margin-top:0">Change exercise</h2>
+  <p class="muted" style="margin-top:0">Swap <b>${esc(it.name)}</b> in ${esc(r.name)}. The timer and cue update with the new move.</p>
+  ${alts.map(n=>`<button class="btn sessbtn" data-a="mobSwapPick" data-r="${esc(r.id)}" data-x="${x}" data-n="${esc(n)}"><span>${esc(n)}</span><small>swap ›</small></button>`).join('')}
+  <button class="btn wide" data-a="closeModal">Cancel</button>`);}
+function applyMobSwap(rid,x,name){const r=routineById(rid),it=r&&r.items[x];if(!it||!name)return;const old=it.name,tpl=mobTemplate(name);
+ it.name=name;if(tpl){it.dose=tpl.dose;it.sec=tpl.sec;it.cue=tpl.cue;}
+ const e=mobEntry(rid,todayKey(),false);if(e){const i=e.d.indexOf(old);if(i>=0)e.d[i]=name;}
+ save();closeModal();render();toast('Swapped · '+name);}
 const ROTATION=['upperA','lowerA','upperB','lowerB'];
 const SCHEDULE={Mon:'upperA',Tue:null,Wed:'lowerA',Thu:'upperB',Fri:null,Sat:'lowerB',Sun:'sunday'};
 const CARDIO_TYPES=['Treadmill walk — flat','Treadmill walk — incline','Treadmill run — flat','Treadmill run — incline','StairMaster','Bike'];
@@ -421,7 +439,7 @@ function vSettings(){const le=S.settings.lastExport;
   <label class="lbl">Block start date</label><input type="date" id="blockStart" value="${b.start}">
   <div class="grid2" style="margin-top:8px"><button class="btn" data-a="blockSaveStart">Save start date</button><button class="btn" data-a="blockNext">Start next block (${b.letter}→${b.nextLetter})</button></div>
   <button class="btn wide" data-a="blockReset" style="margin-top:6px">Reset to Block 1A starting today</button>`;})()}</div>
-  <h2>Meal targets</h2><div class="card"><div class="muted" style="margin-bottom:6px">Daily goals for the Meals tab progress bars. Defaults: 2450 kcal · 180g P · 250g C · 70g F.</div>
+  <h2>Meal targets</h2><div class="card"><div class="muted" style="margin-bottom:6px">Daily goals for the Meals tab. A new Evolt scan sets calories from that scan’s TEE, or from BMR × 1.55 if TEE is missing. Editing calories here keeps your number until the next scan.</div>
   <div class="grid2">${(()=>{ensureMeals();const t=Object.assign({},MEAL_TARGETS,S.meals.targets||{});return `
    <div><label class="lbl">Calories (kcal)</label><input type="number" inputmode="numeric" min="1" step="10" data-f="mealTgt" data-k="kcal" value="${t.kcal}"></div>
    <div><label class="lbl">Protein (g)</label><input type="number" inputmode="numeric" min="1" step="1" data-f="mealTgt" data-k="protein" value="${t.protein}"></div>
@@ -441,7 +459,7 @@ function vSettings(){const le=S.settings.lastExport;
  S.routines.forEach((r,ri)=>{h+=`<details class="card"><summary>${esc(r.name)} <span class="muted" style="margin-left:6px">(${r.items.length})</span></summary>
   <div class="grid2"><div><label class="lbl">Name</label><input data-f="rtName" data-r="${ri}" value="${esc(r.name)}"></div><div><label class="lbl">Hint</label><input data-f="rtHint" data-r="${ri}" value="${esc(r.hint||'')}"></div></div>`;
   r.items.forEach((it,xi)=>{const a=`data-r="${ri}" data-x="${xi}"`;h+=`<div class="pe3" style="border-bottom:1px solid var(--line);padding:8px 0"><div class="pe" style="grid-template-columns:1fr 110px 64px;margin:0"><input data-f="rt" data-k="name" ${a} value="${esc(it.name)}" aria-label="name"><input data-f="rt" data-k="dose" ${a} value="${esc(it.dose)}" aria-label="dose"><input data-f="rt" data-k="sec" type="number" inputmode="numeric" ${a} value="${it.sec||0}" aria-label="timer seconds"></div>
-   <div class="row" style="margin:4px 0 0"><input class="grow" data-f="rt" data-k="cue" ${a} value="${esc(it.cue||'')}" placeholder="How-to cue" aria-label="cue"><button class="btn sm" data-a="demo" data-n="${esc(it.name)}" aria-label="demo">ⓘ</button><button class="btn sm" data-a="rtMove" ${a}>↑</button><button class="btn sm danger" data-a="rtDel" ${a}>✕</button></div></div>`;});
+   <div class="row" style="margin:4px 0 0"><input class="grow" data-f="rt" data-k="cue" ${a} value="${esc(it.cue||'')}" placeholder="How-to cue" aria-label="cue"><button class="btn sm" data-a="mobSwap" data-r="${esc(r.id)}" data-x="${xi}">Change</button><button class="btn sm" data-a="demo" data-n="${esc(it.name)}" aria-label="demo">ⓘ</button><button class="btn sm" data-a="rtMove" ${a}>↑</button><button class="btn sm danger" data-a="rtDel" ${a}>✕</button></div></div>`;});
   h+=`<button class="btn wide" data-a="rtAdd" data-r="${ri}">+ Add item</button></details>`;});
  h+=`<button class="btn wide" data-a="rtReset">Reset mobility routines to default</button>
   <h2>Exercise cues</h2><div class="muted">Tap any exercise name (or ⓘ) for a demo. Exercises without a built-in demo can have your own cues here.</div>${cueList()}
@@ -549,6 +567,8 @@ const A={
  mobGo:t=>{const id=t.dataset.r;if(!routineById(id)){toast('Warm-up routine missing — reset mobility routines in Settings');return;}mobSel=id;mobFromSession=!!S.active;go('mobility');requestAnimationFrame(()=>{const chip=document.querySelector('.chips [data-r="'+id+'"]');if(chip)chip.scrollIntoView({inline:'center',block:'nearest',behavior:'instant'});const list=document.getElementById('mobList');if(list)list.scrollIntoView({behavior:'smooth',block:'start'});});},
  mobSel:t=>{mobSel=t.dataset.r;render();},
  mobTick:t=>{mobToggle(t.dataset.r,+t.dataset.x);render();},
+ mobSwap:t=>openMobSwap(t.dataset.r,+t.dataset.x),
+ mobSwapPick:t=>applyMobSwap(t.dataset.r,+t.dataset.x,t.dataset.n),
  mobAll:t=>{const r=routineById(t.dataset.r),e=mobEntry(t.dataset.r,todayKey(),true);e.d=r.items.map(i=>i.name);e.c=true;save();render();toast('✓ '+r.name+' complete');},
  mobReset:t=>{const L=S.mobLog[todayKey()];if(L){delete L[t.dataset.r];save();render();}},
  bp:t=>{const k=todayKey();if(S.backPain[k]===+t.dataset.v)delete S.backPain[k];else S.backPain[k]=+t.dataset.v;save();render();},
@@ -621,7 +641,7 @@ document.addEventListener('input',e=>{const t=e.target,f=t.dataset.f;
  else if(f==='sNotes'){S.active.notes=t.value;save();}
  else if(f==='exNotes'){S.active.exercises[+t.dataset.i].notes=t.value;save();}
  else if(f==='rest'){const v=parseInt(t.value);if(v>0){S.settings[t.dataset.k]=v;save();}}
- else if(f==='mealTgt'){ensureMeals();const v=num(t.value);if(v!=null&&v>0){S.meals.targets[t.dataset.k]=v;save();}}
+ else if(f==='mealTgt'){ensureMeals();const v=num(t.value);if(v!=null&&v>0){S.meals.targets[t.dataset.k]=v;if(t.dataset.k==='kcal')S.meals.targets.kcalManual=true;save();}}
  else if(f==='cue'){const k=t.dataset.n;if(t.value.trim())S.cues[k]=t.value;else delete S.cues[k];save();}
  else if(f==='rtName'){S.routines[+t.dataset.r].name=t.value;save();}
  else if(f==='rtHint'){S.routines[+t.dataset.r].hint=t.value;save();}
@@ -661,7 +681,7 @@ function vMobility(){const tk=todayKey();if(!mobSel||!routineById(mobSel))mobSel
  if(r){const e=mobEntry(r.id,tk,false),d=e?e.d:[],pr=routineProg(r.id,tk);
   h+=`<div class="card" id="mobList"><div class="hrow"><div><h3>${esc(r.name)}</h3><div class="muted">${esc(r.hint||'')}</div></div><div class="stat" style="font-size:20px">${pr.n}/${pr.of}</div></div>`;
   r.items.forEach((it,x)=>{const dn=d.includes(it.name);h+=`<div class="mi ${dn?'done':''}"><button class="tick" data-a="mobTick" data-r="${r.id}" data-x="${x}" aria-label="done">✓</button>
-   <div class="grow"><button class="linkbtn" data-a="demo" data-n="${esc(it.name)}"><b>${esc(it.name)}</b></button> <span class="muted">· ${esc(it.dose)}</span><div class="cue">${esc(it.cue||'')}</div></div>${it.sec?`<button class="btn" data-a="rest" data-s="${it.sec}">⏱ ${it.sec>=60&&it.sec%60===0?it.sec/60+'m':it.sec+'s'}</button>`:''}</div>`;});
+   <div class="grow"><button class="linkbtn" data-a="demo" data-n="${esc(it.name)}"><b>${esc(it.name)}</b></button> <span class="muted">· ${esc(it.dose)}</span><div class="cue">${esc(it.cue||'')}</div></div>${it.sec?`<button class="btn" data-a="rest" data-s="${it.sec}">⏱ ${it.sec>=60&&it.sec%60===0?it.sec/60+'m':it.sec+'s'}</button>`:''}<button class="btn sm" data-a="mobSwap" data-r="${esc(r.id)}" data-x="${x}">Change</button></div>`;});
   h+=`<div class="row"><button class="btn sm" data-a="mobReset" data-r="${r.id}">Reset today</button><button class="btn primary grow" data-a="mobAll" data-r="${r.id}">✓ Mark all done</button></div></div>`;}
  const bp=S.backPain[tk];
  h+=`<h2>Lower back pain today</h2><div class="card"><div class="muted" style="margin-bottom:8px">0 = none · 10 = worst. ${bp!=null?`Logged: <b>${bp}/10</b>`:'Not logged yet today.'}</div>
@@ -724,7 +744,7 @@ function vPhotos(){if(PH===null){loadPhotos().then(()=>{if(view==='photos')rende
 
 // ---- EVOLT SCANS ----
 // [key,label,unit,direction(+1 up is good, -1 down is good, 0 neutral),decimals]
-const SCAN_F=[['weight','Weight','kg',0,1],['smm','Skeletal muscle mass','kg',1,1],['bfp','Body fat','%',-1,1],['bfm','Body fat mass','kg',-1,1],['lbm','Lean body mass','kg',1,1],['vfl','Visceral fat level','',-1,1],['bmr','BMR','kcal',1,0],['tbw','Total body water','L',0,1],['protein','Protein','kg',1,1],['minerals','Minerals','kg',1,2],['bioAge','Biological age','yrs',-1,0]];
+const SCAN_F=[['weight','Weight','kg',0,1],['smm','Skeletal muscle mass','kg',1,1],['bfp','Body fat','%',-1,1],['bfm','Body fat mass','kg',-1,1],['lbm','Lean body mass','kg',1,1],['vfl','Visceral fat level','',-1,1],['bmr','BMR','kcal',1,0],['tee','TEE','kcal',0,0],['tbw','Total body water','L',0,1],['protein','Protein','kg',1,1],['minerals','Minerals','kg',1,2],['bioAge','Biological age','yrs',-1,0]];
 const SEGS=[['ra','Right arm'],['la','Left arm'],['tr','Trunk'],['rl','Right leg'],['ll','Left leg']];
 const SEG_F=[];SEGS.forEach(([k,n])=>{SEG_F.push(['seg.'+k+'.lean',n+' lean','kg',1,2]);SEG_F.push(['seg.'+k+'.fat',n+' fat','kg',-1,2]);});
 let scanCmp='prev',pendingScanImg=null;
@@ -742,8 +762,9 @@ function evoltBelow(items,label){const hits=items.filter(it=>it.y<label.y-1&&lab
 function evoltLabel(items,re,pred){return items.find(it=>re.test(it.s)&&(!pred||pred(it)))||null;}
 function parseEvoltItems(items){const out={};const wt=items.find(it=>/^\d+(?:\.\d+)?\s*(kg|lb)\b/i.test(it.s));if(wt){const m=wt.s.match(/^(\d+(?:\.\d+)?)\s*(kg|lb)\b/i);out.weight=+m[1];out.unit=m[2].toLowerCase();}
  const dt=items.map(it=>evoltDate(it.s)).find(Boolean);if(dt)out.date=dt;
- const map=[['lbm',/^LEAN BODY MASS$/],['smm',/^SKELETAL MUSCLE MASS$/],['protein',/^PROTEIN$/],['minerals',/^MINERAL$/],['tbw',/^TOTAL BODY WATER$/],['bfm',/^BODY FAT MASS$/],['vfl',/^VISCERAL FAT LEVEL$/],['bmr',/^BMR$/],['bfp',/^TOTAL BODY FAT PERCENTAGE$/],['bioAge',/^BIO AGE$/]];
+ const map=[['lbm',/^LEAN BODY MASS$/],['smm',/^SKELETAL MUSCLE MASS$/],['protein',/^PROTEIN$/],['minerals',/^MINERAL$/],['tbw',/^TOTAL BODY WATER$/],['bfm',/^BODY FAT MASS$/],['vfl',/^VISCERAL FAT LEVEL$/],['bmr',/^BMR$/],['tee',/^TEE\b|TOTAL ENERGY EXPENDITURE/i],['bfp',/^TOTAL BODY FAT PERCENTAGE$/],['bioAge',/^BIO AGE$/]];
  map.forEach(([k,re])=>{const lab=evoltLabel(items,re,it=>k!=='protein'||it.x<80);if(!lab)return;const v=evoltBelow(items,lab);if(v)out[k]=evoltFirstNum(v.s);});
+ if(out.tee==null){const kc=items.filter(it=>/kcal/i.test(it.s)&&evoltFirstNum(it.s)!=null).map(it=>({n:evoltFirstNum(it.s),y:it.y})).sort((a,b)=>b.y-a.y);const other=kc.find(x=>x.n!==out.bmr);if(other)out.tee=other.n;}
  const parts=[['la',/^LEFT ARM$/],['ra',/^RIGHT ARM$/],['tr',/^TORSO$/],['ll',/^LEFT LEG$/],['rl',/^RIGHT LEG$/]];
  out.seg={};parts.forEach(([k,re])=>{const lab=evoltLabel(items,re);if(!lab)return;const band=items.filter(it=>it.y<lab.y-4&&lab.y-it.y<55&&evoltFirstNum(it.s)!=null&&!/^\s*\[/.test(it.s)&&!/\b(in|cm)\b/i.test(it.s)&&(lab.x<280?it.x<250:it.x>280));band.sort((a,b)=>a.x-b.x);if(band[0])(out.seg[k]=out.seg[k]||{}).lean=evoltFirstNum(band[0].s);if(band[1])(out.seg[k]=out.seg[k]||{}).fat=evoltFirstNum(band[1].s);});
  if(!Object.keys(out.seg).length)delete out.seg;return out;}
@@ -752,8 +773,8 @@ async function evoltItemsFromPdf(file){const pdfjs=await loadPdfJs();const data=
 async function fillScanFromFile(file){if(!isPdfFile(file)){toast('Numbers are read from the Evolt PDF. A photo still attaches, but type the values in.',5000);return;}
  try{toast('Reading report…');const parsed=evoltToKg(parseEvoltItems(await evoltItemsFromPdf(file)));
   const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=String(v);};
-  set('sf_date',parsed.date);['weight','smm','bfp','bfm','lbm','vfl','bmr','tbw','protein','minerals','bioAge'].forEach(k=>set('sf_'+k,parsed[k]));
-  let n=['weight','smm','bfp','bfm','lbm','vfl','bmr','tbw','protein','minerals','bioAge','date'].filter(k=>parsed[k]!=null).length;
+  set('sf_date',parsed.date);['weight','smm','bfp','bfm','lbm','vfl','bmr','tee','tbw','protein','minerals','bioAge'].forEach(k=>set('sf_'+k,parsed[k]));
+  let n=['weight','smm','bfp','bfm','lbm','vfl','bmr','tee','tbw','protein','minerals','bioAge','date'].filter(k=>parsed[k]!=null).length;
   if(parsed.seg){Object.keys(parsed.seg).forEach(k=>['lean','fat'].forEach(f=>{if(parsed.seg[k][f]!=null){set('sf_seg_'+k+'_'+f,parsed.seg[k][f]);n++;}}));const d=document.querySelector('#modal details');if(d)d.open=true;}
   if(n<3)toast('Could not read this PDF. Type the numbers, or send a clearer Evolt sheet.',5000);
   else toast('Filled '+n+' fields'+(parsed.unit==='lb'?' (converted from lb to kg)':'')+'. Check them, then save.',5000);
@@ -809,11 +830,14 @@ async function scanSave(id){const date=document.getElementById('sf_date').value;
  else{toast('Compressing report image…');const img=await loadImg(pendingScanImg),full=resizeImg(img,1600,.85);await idbPutFull('scan_'+rec.id,full.url);rec.img=true;rec.pdf=false;}
  pendingScanImg=null;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}}
  const tb=document.getElementById('sf_tobody');if(tb&&tb.checked&&rec.weight&&!S.body.some(b=>b.date===date))S.body.push({date,kg:rec.weight});
+ ensureMeals();const cal=evoltKcalOf(rec);
+ if(cal){S.meals.targets.kcal=cal.kcal;S.meals.targets.kcalScan=rec.id;S.meals.targets.kcalNote=cal.note;S.meals.targets.kcalManual=false;}
  S.scans=S.scans.filter(x=>x.id!==rec.id);S.scans.push(rec);save();closeModal();render();
  const list=sortedScans(),i=list.findIndex(x=>x.id===rec.id),prev=i>0?list[i-1]:null;
- if(!prev){toast('✓ Scan saved');return;}
+ const calLine=cal?`<div class="card" style="margin-top:8px"><b>Daily calories now ${cal.kcal} kcal</b><div class="muted">${esc(cal.note)}</div></div>`:'';
+ if(!prev){toast(cal?`✓ Scan saved · ${cal.kcal} kcal goal`:'✓ Scan saved');return;}
  modal(`<div class="hrow"><h2 style="margin:0">vs ${fmtKeyShort(prev.date)}</h2><button class="btn sm" data-a="closeModal">Close</button></div>
- <div class="muted">${fmtKeyDate(prev.date)} → ${fmtKeyDate(rec.date)} · saved</div>${scanSummary(prev,rec)}`);}
+ <div class="muted">${fmtKeyDate(prev.date)} → ${fmtKeyDate(rec.date)} · saved</div>${calLine}${scanSummary(prev,rec)}`);}
 async function scanViewer(id){const sc=S.scans.find(x=>x.id===id);if(!sc)return;
  const rows=SCAN_F.concat(SEG_F).filter(([k])=>sv(sc,k)!=null).map(([k,l,u,,d])=>`<tr><td>${esc(l)}</td><td class="n"><b>${fmtN(sv(sc,k),d)}</b> <span class="muted">${u}</span></td></tr>`).join('');
  modal(`<div class="hrow"><h2 style="margin:0">Evolt · ${fmtKeyShort(sc.date)}</h2><button class="btn sm" data-a="closeModal">Close</button></div><div class="muted">${fmtKeyDate(sc.date)}</div>
@@ -956,6 +980,10 @@ function cueList(){const seen=new Set(),list=[];const add=n=>{const k=nKey(n);if
 
 // ---- MEALS (Youfoodz plan + daily log + barcode) ----
 const MEAL_TARGETS={kcal:2450,protein:180,carbs:250,fat:70};
+function evoltKcalOf(sc){if(!sc)return null;
+ if(sc.tee>=800)return {kcal:Math.round(sc.tee/10)*10,note:'Evolt TEE · '+fmtKeyShort(sc.date)};
+ if(sc.bmr>=800)return {kcal:Math.round(sc.bmr*1.55/10)*10,note:'Evolt BMR × 1.55 · '+fmtKeyShort(sc.date)};
+ return null;}
 /* S.meals.delivery shape (refresh each weekly Youfoodz order):
  * {
  *   week: '2026-W40', status: 'Delivered',
@@ -1250,6 +1278,8 @@ function ensureMeals(){
   });
  }
  S.meals.targets=Object.assign({},MEAL_TARGETS,S.meals.targets||{});
+ if(!S.meals.targets.kcalManual){const sc=sortedScans().filter(x=>(x.tee>=800)||(x.bmr>=800)).pop();
+  if(sc&&S.meals.targets.kcalScan!==sc.id){const got=evoltKcalOf(sc);if(got){S.meals.targets.kcal=got.kcal;S.meals.targets.kcalScan=sc.id;S.meals.targets.kcalNote=got.note;}}}
  if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
  if(!S.meals.library||typeof S.meals.library!=='object'||Array.isArray(S.meals.library))S.meals.library={};
  if(!Array.isArray(S.meals.favourites))S.meals.favourites=[];
@@ -1306,7 +1336,7 @@ function macroBar(tot){
    <span class="vals">${r.round(r.cur)}${u} / ${r.round(r.goal)}${u}</span></div>`;
  }).join('');
  return `<div class="card" style="padding:10px 12px"><div class="hrow"><b>Daily macros</b><span class="muted">vs goals</span></div>
-  <div class="mbar">${body}</div></div>`;
+  <div class="mbar">${body}</div>${t.kcalNote&&!t.kcalManual?`<div class="muted" style="margin-top:6px">Calories from ${esc(t.kcalNote)}</div>`:''}</div>`;
 }
 function slotLabel(s){return ({breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snack:'Snack',treat:'Treat'}[s]||s||'Meal');}
 function findYf(id){ensureMeals();return (S.meals.delivery.items||[]).find(x=>x.id===id)||null;}
