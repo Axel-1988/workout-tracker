@@ -1,6 +1,9 @@
 'use strict';
 
-const TZ='Australia/Sydney', KEY='workoutTracker.v1';
+const TZ='Australia/Sydney', KEY='workoutTracker.v1', SCAN_KEY='workoutTracker.scans.v1';
+function readScanVault(){try{const r=JSON.parse(localStorage.getItem(SCAN_KEY)||'null');return Array.isArray(r)?r.filter(x=>x&&x.id):[];}catch(e){return [];}}
+function writeScanVault(list){try{localStorage.setItem(SCAN_KEY,JSON.stringify(list||[]));}catch(e){}}
+function mergeScanLists(primary,backup){const byId={};(backup||[]).forEach(s=>{if(s&&s.id)byId[s.id]=s;});(primary||[]).forEach(s=>{if(s&&s.id)byId[s.id]=Object.assign({},byId[s.id]||{},s);});return Object.keys(byId).map(k=>byId[k]);}
 function ex(name,sets,reps,o){o=o||{};return {name,sets,reps,press:!!o.press,main:!!o.main,cardio:!!o.cardio,abs:!!o.abs};}
 const ABS_UPPER=[ex('Dead bug',2,'8 each side',{abs:1}),ex('Cable crunch',2,'12',{abs:1}),ex('Side plank (knees)',2,'20-30s each side',{abs:1})];
 const ABS_LOWER=[ex('Pallof press',2,'10 each side',{abs:1}),ex('Cable crunch',2,'12',{abs:1}),ex('Reverse crunch',2,'10',{abs:1})];
@@ -161,6 +164,8 @@ function defaults(){return {version:1,plan:clone(DEFAULT_PLAN),sessions:[],cardi
 function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.assign(defaults().settings,s.settings||{});
  ['sessions','cardio','body'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=[]}); if(!Array.isArray(s.plan)||!s.plan.length)s.plan=clone(DEFAULT_PLAN);else if(mergeAbsIntoPlan(s.plan))s._absMerged=1; if(!Array.isArray(s.routines)||!s.routines.length)s.routines=clone(DEFAULT_ROUTINES);else{const have=new Set(s.routines.map(r=>r.id));DEFAULT_ROUTINES.forEach(d=>{if(!have.has(d.id))s.routines.push(clone(d));});}
  if(!Array.isArray(s.scans))s.scans=[];
+ const vault=readScanVault();
+ if(vault.length){const merged=mergeScanLists(s.scans,vault);if(merged.length!==s.scans.length)s._deduped=1;s.scans=merged;}
  if(!s.settings.seededEvolt&&!s.scans.length){
   s.scans.push({id:'evolt-2026-10-02',date:'2026-10-02',t:Date.parse('2026-10-02T07:43:00+10:00'),notes:'Evolt 360 · 2 Oct 2026 · 07:43',weight:99.2,smm:48.4,bfp:12.8,bfm:12.7,lbm:86.5,vfl:7,bmr:2238,tee:3446,tbw:62.3,protein:18.4,minerals:5.8,bioAge:33,seg:{ra:{lean:5.11,fat:0.47},la:{lean:5.34,fat:0.4},tr:{lean:37.31,fat:8.33},rl:{lean:12.43,fat:1.78},ll:{lean:12.13,fat:1.71}}});
   if(!s.body.some(b=>b.date==='2026-10-02'))s.body.push({date:'2026-10-02',kg:99.2});
@@ -176,7 +181,8 @@ function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.
 function load(){try{const r=localStorage.getItem(KEY);if(r)return normalize(JSON.parse(r));}catch(e){console.error(e)}return defaults();}
 let S=load();
 if(S._absMerged||S._deduped){delete S._absMerged;delete S._deduped;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('⚠ Could not save: '+e.message)}}
+writeScanVault(S.scans);
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));writeScanVault(S.scans);}catch(e){toast('⚠ Could not save: '+e.message)}}
 
 // ---- dates (Australia/Sydney) ----
 const fmtKey=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'});
@@ -653,7 +659,7 @@ const A={
  blockNext:()=>{if(!confirm('Start the next 4-week block now? Accessories flip A↔B and week resets to 1.'))return;advanceBlock(false);render();},
  blockReset:()=>{if(!confirm('Reset training block to Block 1A starting today?'))return;S.block={start:todayKey(),letter:'A',number:1};save();toast('Block reset to 1A');render();},
  clear:()=>modal(`<h2 style="margin-top:0;color:var(--da)">Clear all data?</h2><p>This deletes all sessions, cardio, body weight and plan edits from this device. Export a backup first!</p><label class="lbl">Type DELETE to confirm</label><input id="clrTa" autocomplete="off" autocapitalize="characters"><div class="row"><button class="btn grow" data-a="closeModal">Cancel</button><button class="btn danger grow" data-a="clearOk">Delete everything</button></div>`),
- clearOk:()=>{if(document.getElementById('clrTa').value.trim().toUpperCase()!=='DELETE'){toast('Type DELETE to confirm');return;}localStorage.removeItem(KEY);S=defaults();save();idbClear().catch(()=>{});PH=null;stopTimer();closeModal();toast('All data cleared');go('home');},
+ clearOk:()=>{if(document.getElementById('clrTa').value.trim().toUpperCase()!=='DELETE'){toast('Type DELETE to confirm');return;}localStorage.removeItem(KEY);localStorage.removeItem(SCAN_KEY);S=defaults();S.settings.seededEvolt=1;save();idbClear().catch(()=>{});PH=null;stopTimer();closeModal();toast('All data cleared');go('home');},
  mobGo:t=>{const id=t.dataset.r;if(!routineById(id)){toast('Warm-up routine missing — reset mobility routines in Settings');return;}mobSel=id;mobFromSession=!!S.active;go('mobility');requestAnimationFrame(()=>{const chip=document.querySelector('.chips [data-r="'+id+'"]');if(chip)chip.scrollIntoView({inline:'center',block:'nearest',behavior:'instant'});const list=document.getElementById('mobList');if(list)list.scrollIntoView({behavior:'smooth',block:'start'});});},
  mobSel:t=>{mobSel=t.dataset.r;render();},
  mobTick:t=>{mobToggle(t.dataset.r,+t.dataset.x);render();},
