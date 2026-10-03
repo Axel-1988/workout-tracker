@@ -125,6 +125,9 @@ const EXTRA_TPL=[
  ex('StairMaster',1,'20 min',{cardio:1}),
  ex('Bike',1,'20 min',{cardio:1})
 ];
+const DAY_GROUPS={upperA:['back','chest','shoulders','arms','abs'],upperB:['back','chest','shoulders','arms','abs'],lowerA:['quads','posterior','calves','abs'],lowerB:['quads','posterior','calves','abs'],sunday:['back','shoulders','arms','cardio','abs']};
+function groupsForPlan(planId){const ids=DAY_GROUPS[planId]||SWAP_GROUPS.map(g=>g.id);return ids.map(id=>SWAP_GROUPS.find(g=>g.id===id)).filter(Boolean);}
+function catalogNames(){const set=new Set();SWAP_GROUPS.forEach(g=>g.names.forEach(n=>set.add(n)));allExerciseNames().forEach(n=>set.add(n));return [...set].sort((a,b)=>a.localeCompare(b));}
 const nameKey=n=>String(n||'').trim().toLowerCase();
 function todayNames(){const set=new Set();const add=n=>{const k=nameKey(n);if(k)set.add(k);};
  const day=SCHEDULE[wday(Date.now())],p=day&&planById(day);
@@ -365,21 +368,43 @@ function startSession(id){if(S.active&&!confirm('A session is already in progres
  S.active={id:uid(),planId:p?p.id:'custom',name:p?p.name:'Custom',start:Date.now(),notes:'',blockLetter:bi.letter,blockWeek:bi.week,deload:!!bi.deload,exercises:raw.map(mkEx)};
  S.active.exercises.forEach(e=>stampLoad(e,bi));
  save();go('session');wake(true);}
-function exModal(target){const names=allExerciseNames();
- const sess=target==='session',planHint=sess&&S.active&&S.active.planId&&S.active.planId!=='custom'?planById(S.active.planId):null;
+function exModal(target){
+ const sess=target==='session';
+ const planHint=sess&&S.active&&S.active.planId&&S.active.planId!=='custom'?planById(S.active.planId):(!sess?S.plan[+target]:null);
+ const groups=groupsForPlan(planHint&&planHint.id);
+ const used=new Set();
+ if(sess&&S.active)S.active.exercises.forEach(e=>used.add(nameKey(e.name)));
+ else if(planHint)(planHint.exercises||[]).forEach(e=>used.add(nameKey(e.name)));
+ const opt=g=>g.names.filter(n=>!used.has(nameKey(n))).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
  modal(`<h2 style="margin-top:0">+ Add exercise</h2>
- <p class="muted" style="margin:0 0 8px">${sess?'Adds to this session\'s plan for today. Guided Start set → rest still applies.':'Adds to the saved plan (new sessions).'}</p>
- <label class="lbl">Name</label><input id="mName" list="exnames" placeholder="Type or pick e.g. Cable row" autocomplete="off"><datalist id="exnames">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+ <p class="muted" style="margin:0 0 8px">Choose from today’s groups, or search if you want something else.</p>
+ <label class="lbl">Group · ${esc(planHint?planHint.name:'this session')}</label>
+ <select id="mGroup">${groups.map(g=>`<option value="${esc(g.id)}">${esc(g.label)}</option>`).join('')}</select>
+ <label class="lbl">Exercise</label>
+ <select id="mPick">${opt(groups[0]||{names:[]})||'<option value="">Nothing left in this group</option>'}</select>
+ <label class="lbl">Or search any exercise</label>
+ <input id="mSearch" placeholder="Type to search, or a name that isn’t listed" autocomplete="off">
+ <div id="mHits"></div>
  <div class="grid2"><div><label class="lbl">Sets <span class="muted">(optional)</span></label><input id="mSets" type="number" inputmode="numeric" min="1" placeholder="3" value=""></div>
  <div><label class="lbl">Reps / target <span class="muted">(optional)</span></label><input id="mReps" placeholder="8-12 or AMRAP" value=""></div></div>
  <label class="chk"><input type="checkbox" id="mPress"> Pressing exercise (track pain)</label>
  <label class="chk"><input type="checkbox" id="mMain"> Main lift (${S.settings.restMain}s rest)</label>
  <label class="chk"><input type="checkbox" id="mAbs"> Abs finisher</label>
  <label class="chk"><input type="checkbox" id="mCardio"> Cardio (log minutes)</label>
- ${planHint?`<label class="chk"><input type="checkbox" id="mToPlan"> Also keep in ${esc(planHint.name)} plan</label>`:''}
+ ${sess&&planHint?`<label class="chk"><input type="checkbox" id="mToPlan"> Also keep in ${esc(planHint.name)} plan</label>`:''}
  <div class="row"><button class="btn grow" data-a="closeModal">Cancel</button><button class="btn primary grow" data-a="exModalOk" data-t="${target}">Add to session</button></div>`);
- const n=document.getElementById('mName');n.addEventListener('change',()=>{const t=findTemplate(n.value);if(t){mSets.value=t.sets;mReps.value=t.reps;mPress.checked=!!t.press;mMain.checked=!!t.main;mAbs.checked=!!t.abs;mCardio.checked=!!t.cardio;}});
- // Prefer Add label when editing the plan from Settings
+ const fill=name=>{const t=templateFor(name);if(!t)return;mSets.value=t.sets||'';mReps.value=t.reps||'';mPress.checked=!!t.press;mMain.checked=!!t.main;mAbs.checked=!!t.abs;mCardio.checked=!!t.cardio;};
+ const grp=document.getElementById('mGroup'),pick=document.getElementById('mPick'),search=document.getElementById('mSearch'),hits=document.getElementById('mHits');
+ const refill=()=>{const g=SWAP_GROUPS.find(x=>x.id===grp.value)||{names:[]};pick.innerHTML=opt(g)||'<option value="">Nothing left in this group</option>';if(pick.value)fill(pick.value);};
+ grp.addEventListener('change',()=>{search.value='';hits.innerHTML='';refill();});
+ pick.addEventListener('change',()=>{search.value='';hits.innerHTML='';if(pick.value)fill(pick.value);});
+ if(pick.value)fill(pick.value);
+ const all=catalogNames();
+ search.addEventListener('input',()=>{const q=search.value.trim().toLowerCase();
+  const list=!q?[]:all.filter(n=>n.toLowerCase().includes(q)).slice(0,8);
+  hits.innerHTML=list.map(n=>`<button type="button" class="btn sessbtn" data-hit="${esc(n)}"><span>${esc(n)}</span><small>use ›</small></button>`).join('');
+  hits.querySelectorAll('[data-hit]').forEach(b=>b.addEventListener('click',()=>{search.value=b.getAttribute('data-hit');hits.innerHTML='';fill(search.value);}));
+ });
  if(!sess){const ok=document.querySelector('#modal [data-a=exModalOk]');if(ok)ok.textContent='Add to plan';}
 }
 function findTemplate(name){const n=name.trim().toLowerCase();for(const p of S.plan)for(const e of p.exercises)if(e.name.toLowerCase()===n)return e;return null;}
@@ -583,7 +608,8 @@ const A={
  delEx:t=>{const i=+t.dataset.i;if(confirm(`Remove ${S.active.exercises[i].name} from this session?`)){S.active.exercises.splice(i,1);save();render();}},
  addEx:()=>exModal('session'),
  closeModal,
- exModalOk:t=>{const name=document.getElementById('mName').value.trim();if(!name){toast('Enter a name');return;}
+ exModalOk:t=>{const typed=(document.getElementById('mSearch').value||'').trim(),picked=(document.getElementById('mPick').value||'').trim(),name=typed||picked;if(!name){toast('Pick or type an exercise');return;}
+  if(t.dataset.t==='session'&&S.active&&S.active.exercises.some(e=>nameKey(e.name)===nameKey(name))){toast('Already in this session');return;}
   const setsRaw=(document.getElementById('mSets').value||'').trim(),repsRaw=(document.getElementById('mReps').value||'').trim();
   const tpl={name,sets:setsRaw||'3',reps:repsRaw,press:mPress.checked,main:mMain.checked,abs:mAbs.checked,cardio:mCardio.checked};
   if(t.dataset.t==='session'){
