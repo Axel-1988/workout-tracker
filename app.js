@@ -221,9 +221,11 @@ function topReps(r){const m=String(r||'').match(/(\d+)\s*(?:-\s*(\d+))?/);if(!m|
 const doneSets=e=>(e.sets||[]).filter(s=>s.done);
 const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:null};
 function sortedSessions(){return S.sessions.slice().sort((a,b)=>b.start-a.start);}
-function lastFor(name,excludeId){const n=name.trim().toLowerCase();
- for(const s of sortedSessions()){if(s.id===excludeId)continue;
-  const e=s.exercises.find(x=>x.name.trim().toLowerCase()===n&&(x.cardio?num(x.minutes):doneSets(x).length));
+function setKg(st){if(!st)return null;const raw=st.w!=null&&String(st.w).trim()!==''?st.w:(st.kg!=null&&String(st.kg).trim()!==''?st.kg:st.weight);if(raw==null||String(raw).trim()==='')return null;return num(raw);}
+function loggedSets(e){const sets=Array.isArray(e&&e.sets)?e.sets:[];const done=sets.filter(s=>s&&s.done&&setKg(s)!=null);return done.length?done:sets.filter(s=>s&&setKg(s)!=null);}
+function lastFor(name,excludeId){const n=nameKey(name);if(!n)return null;
+ for(const s of sortedSessions()){if(!s||s.id===excludeId||!Array.isArray(s.exercises))continue;
+  const e=s.exercises.find(x=>x&&nameKey(x.name)===n&&(x.cardio?num(x.minutes):loggedSets(x).length));
   if(e)return Object.assign({date:s.start},e);}
  return null;}
 function hitTop(last){const top=topReps(last.target&&last.target.reps);if(!top)return false;const d=doneSets(last);
@@ -232,7 +234,7 @@ function bottomReps(r){const m=String(r||'').match(/(\d+)/);if(!m||/amrap|min/i.
 function loadStep(w,main){if(main||w>=40)return 2.5;if(w>=12)return 2;return 1;}
 function roundLoad(w,step){return Math.round(Math.round(w/step)*step*100)/100;}
 function nextLoad(e,bi){if(!e||e.cardio)return null;const last=lastFor(e.name,S.active&&S.active.id);
- if(!last)return null;const sets=doneSets(last);const ws=sets.map(s=>num(s.w)).filter(n=>n>0);if(!ws.length)return null;
+ if(!last)return null;const sets=doneSets(last).length?doneSets(last):loggedSets(last);const ws=sets.map(setKg).filter(n=>n>0);if(!ws.length)return null;
  const w=Math.max.apply(null,ws),step=loadStep(w,e.main),pain=e.press&&last.pain!=null&&last.pain>3;
  if(bi.deload){const kg=Math.max(step,roundLoad(w*0.9,step));return {kg,note:'Deload week · '+kg+' kg (about 90% of '+w+' kg)'};}
  if(bi.week<=1)return {kg:w,note:'Week 1 · '+w+' kg, same as last time. The load steps up from week 2 if every set hits the top reps.'};
@@ -241,10 +243,12 @@ function nextLoad(e,bi){if(!e||e.cardio)return null;const last=lastFor(e.name,S.
  const bot=bottomReps(last.target&&last.target.reps),missed=bot&&sets.some(s=>(num(s.r)||0)<bot);
  if(missed){const kg=Math.max(step,roundLoad(w-step,step));return {kg,note:'Week '+bi.week+' · '+kg+' kg (−'+step+'). Last time missed the bottom of the rep range.'};}
  return {kg:w,note:'Week '+bi.week+' · stay at '+w+' kg until every set hits the top reps.'};}
-function stampLoad(e,bi){if(!e||e.cardio||!Array.isArray(e.sets)||e.sets.some(s=>s.done))return;const o=nextLoad(e,bi);
- if(!o){e.sets.forEach(st=>{st.w='';});delete e.ol;return;}
- const last=lastFor(e.name,S.active&&S.active.id),ls=last?doneSets(last):[],mx=Math.max.apply(null,ls.map(x=>num(x.w)||0)),d=o.kg-mx;
- e.sets.forEach((st,j)=>{const p=ls[j]||ls[ls.length-1];const pw=p&&num(p.w);st.w=String(pw>0?roundLoad(Math.max(0,pw+d),loadStep(mx,e.main)):o.kg);});e.ol=o.note;}
+function stampLoad(e,bi){if(!e||e.cardio||!Array.isArray(e.sets)||e.sets.some(s=>s.done))return false;const o=nextLoad(e,bi);
+ const last=lastFor(e.name,S.active&&S.active.id),prev=last?loggedSets(last):[],same=o&&/same as last|stay at|Week 1/i.test(o.note);let changed=false;
+ e.sets.forEach((st,j)=>{if(String(st.w||'').trim()!=='')return;let kg=null;
+  if(o&&!same)kg=o.kg;else{const p=prev[j]||prev[prev.length-1];kg=p?setKg(p):null;if(kg==null&&o)kg=o.kg;}
+  if(kg==null)return;st.w=String(kg);changed=true;});
+ if(o)e.ol=o.note;else if(!prev.length)delete e.ol;return changed;}
 function suggested(){const last=sortedSessions().find(s=>ROTATION.includes(s.planId));
  const id=last?ROTATION[(ROTATION.indexOf(last.planId)+1)%ROTATION.length]:ROTATION[0];return planById(id)?id:(S.plan[0]&&S.plan[0].id);}
 function allExerciseNames(){const set=new Set();S.plan.forEach(p=>p.exercises.forEach(e=>set.add(e.name)));S.sessions.forEach(s=>s.exercises.forEach(e=>set.add(e.name)));return [...set].sort();}
@@ -310,7 +314,7 @@ function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),toda
 
 // ---- SESSION ----
 function vSession(){const s=S.active;if(!s){view='home';return vHome();}
- if(!s._olv3){const bi=blockInfo();s.exercises.forEach(e=>{if(!e.cardio&&Array.isArray(e.sets)&&!e.sets.some(x=>x.done)&&e.sets.every(x=>!x.w))stampLoad(e,bi);});s._olv3=1;save();}
+ if(Array.isArray(s.exercises)){const bi=blockInfo();let dirty=false;s.exercises.forEach(e=>{if(stampLoad(e,bi))dirty=true;});if(dirty)save();}
  const nDone=s.exercises.reduce((a,e)=>a+(e.cardio?(e.done?1:0):doneSets(e).length),0);
  const wu=/^lower/i.test(s.planId)?'wuLower':'wuUpper',wp=routineProg(wu,todayKey());
  const sessSec=Math.floor((Date.now()-s.start)/1000);
@@ -339,7 +343,7 @@ function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
  const tags=(e.main?'<span class="tag main">MAIN</span>':'')+(e.abs?'<span class="tag abs">ABS</span>':'')+(e.press?'<span class="tag">PRESS</span>':'')+(e.cardio?'<span class="tag cardio">CARDIO</span>':'');
  let h=`<div class="card ex" id="ex${i}"><h3><span><button class="linkbtn" data-a="demo" data-n="${esc(e.name)}">${esc(e.name)}</button>${tags}</span><span class="muted" style="white-space:nowrap">${e.target.sets}×${esc(e.target.reps)}</span></h3>${hints}`;
  if(e.cardio){h+=`<div class="set ${e.done?'done':''}" style="grid-template-columns:1fr 1fr 60px"><input inputmode="numeric" type="number" data-f="min" data-i="${i}" value="${esc(e.minutes)}" placeholder="${topReps(e.target.reps)||parseInt(e.target.reps)||20} min" aria-label="minutes"><input inputmode="numeric" type="number" data-f="ckcal" data-i="${i}" value="${esc(e.kcal==null?'':e.kcal)}" placeholder="kcal" aria-label="calories burned"><button class="tick" data-a="tickC" data-i="${i}">✓</button></div>`;}
- else{const ls=last?doneSets(last):[];
+ else{const ls=last?loggedSets(last):[];
   h+=`<div class="sethdr"><span>#</span><span>kg</span><span>reps</span><span>done</span></div>`;
   e.sets.forEach((st,j)=>{const p=ls[j]||ls[ls.length-1]||{};const pr=p.r||topReps(e.target.reps)||'';
    h+=`<div class="set ${st.done?'done':''}"><span class="sn">${j+1}</span>
@@ -572,6 +576,10 @@ async function doImport(text){let d;try{d=JSON.parse(text);}catch(e){toast('⚠ 
  if(scanImgs.length){try{for(const x of scanImgs)if(x&&x.id&&x.full)await idbPutFull('scan_'+x.id,x.full);}catch(e){toast('⚠ Scan image import failed: '+e.message,4000);}}
  if(photos.length){try{for(const ph of photos){const full=ph.full;const rec=Object.assign({},ph);delete rec.full;if(rec.id&&full)await idbPut(rec,full);}PH=null;}catch(e){toast('⚠ Photo import failed: '+e.message,4000);}}closeModal();toast('✓ Backup imported');render();}
 
+function flushSetInputs(){if(!S.active||!Array.isArray(S.active.exercises))return;
+ document.querySelectorAll('#app input[data-f="w"],#app input[data-f="r"]').forEach(inp=>{
+  const e=S.active.exercises[+inp.dataset.i];if(!e||!Array.isArray(e.sets))return;
+  const st=e.sets[+inp.dataset.j];if(!st)return;st[inp.dataset.f]=inp.value.trim();});}
 // ---- actions ----
 const A={
  nav:t=>{let v=t.dataset.v;if(v==='train'){v=S.active?'session':'home';mobFromSession=false;}else if(v!=='mobility')mobFromSession=false;go(v);},
@@ -581,7 +589,7 @@ const A={
   if(!m||m<=0){toast('Enter minutes');return;}if(kcal!=null&&kcal<0){toast('Calories must be ≥ 0');return;}const t=d===todayKey()?Date.now():keyT(d)+2*3600e3;
   S.cardio.push({id:uid(),type,minutes:m,kcal,date:d,t});save();toast(`✓ ${m} min ${type}${kcal!=null?' · '+kcal+' kcal':''}`);render();},
  tick:t=>{const i=+t.dataset.i,e=S.active.exercises[i],st=e.sets[+t.dataset.j],row=t.closest('.set');
-  if(!st.done){const [wi,ri]=row.querySelectorAll('input');if(st.w===''&&wi.placeholder&&wi.placeholder!=='kg')st.w=wi.placeholder;if(st.r===''&&ri.placeholder&&ri.placeholder!=='reps')st.r=ri.placeholder;
+  if(!st.done){const [wi,ri]=row.querySelectorAll('input');if(wi&&wi.value.trim()!=='')st.w=wi.value.trim();else if(st.w===''&&wi&&wi.placeholder&&wi.placeholder!=='kg')st.w=wi.placeholder;if(ri&&ri.value.trim()!=='')st.r=ri.value.trim();else if(st.r===''&&ri&&ri.placeholder&&ri.placeholder!=='reps')st.r=ri.placeholder;
    st.done=true;swFreeze(e); // end work for this set
    const more=e.sets.some(x=>!x.done);
    if(more)startTimer(restSecFor(e),i);else{stopTimer();toast('✓ '+e.name+' done');}
@@ -627,14 +635,14 @@ const A={
   const tpl={name,sets:setsRaw||'3',reps:repsRaw,press:mPress.checked,main:mMain.checked,abs:mAbs.checked,cardio:mCardio.checked};
   if(t.dataset.t==='session'){
    if(!S.active){toast('No active session');return;}
-   const ex=mkEx(tpl);const idx=insertSessionEx(ex);
+   const ex=mkEx(tpl);stampLoad(ex,blockInfo());const idx=insertSessionEx(ex);
    const toPlan=document.getElementById('mToPlan');
    if(toPlan&&toPlan.checked&&S.active.planId&&S.active.planId!=='custom'){const p=planById(S.active.planId);if(p)insertPlanEx(p,tpl);}
    save();closeModal();render();toast('✓ Added '+name);setTimeout(()=>{const c=document.getElementById('ex'+idx);if(c)c.scrollIntoView({behavior:'smooth',block:'nearest'});},50);
   }else{const p=S.plan[+t.dataset.t];if(!p){toast('Plan not found');return;}insertPlanEx(p,tpl);save();closeModal();renderKeepOpen();toast('✓ Added to plan');}
   },
  discard:()=>{if(confirm('Discard this session? Nothing will be saved.')){S.active=null;save();stopTimer();stopClock();wake(false);go('home');}},
- finish:()=>{const s=S.active,n=s.exercises.reduce((a,e)=>a+(e.cardio?(e.done?1:0):doneSets(e).length),0);
+ finish:()=>{flushSetInputs();const s=S.active,n=s.exercises.reduce((a,e)=>a+(e.cardio?(e.done?1:0):doneSets(e).length),0);
   if(!n&&!confirm('No sets ticked done. Save anyway?'))return;s.end=Date.now();
   s.exercises.forEach(e=>{swFreeze(e);delete e._showNote;delete e._swOn;delete e._swT0;if(!e.durationSec)delete e.durationSec;});
   S.sessions.push(s);S.active=null;save();stopTimer();stopClock();wake(false);toast('✓ Session saved');go('detail',s.id);},
@@ -1130,8 +1138,7 @@ function evoltKcalOf(sc){return kcalForGoal((S.meals&&S.meals.targets&&S.meals.t
  * Home plan days are flexible suggestions only.
  */
 const YF_BASE='https://www.youfoodz.com/my-deliveries/2026-W40';
-/* W40 (delivered Wed 30 Sep) — kept for reference; phones that still hold W40 archive their ticks into the daily log on upgrade. */
-const YF_W40_ITEMS=[
+const YF_ITEMS=[
  {id:'yf-butter',name:'Butter Chicken — with Naan & Brown Rice',kcal:871,protein:40.9,carbs:90.7,fat:36.4,
   allergens:'milk, gluten, wheat',
   ingredients:'brown rice (32%), coconut cream (22%), chicken (21%), naan bread (8%), water, sweet chilli sauce, marinade, garlic, milk powder, tomato paste, vegetable booster, curry powder, sweet paprika, modified starch, butter, vinegar powder, cumin, coriander, vinegar/cultured sugar',
@@ -1170,34 +1177,8 @@ const YF_W40_ITEMS=[
   flag:'Contains pork (ham)',
   url:YF_BASE+'?recipeId=6a0ff25bdea7c5717bde6733&week=2026-W40'}
 ];
-/* W41 — delivery Wed 7 Oct 2026 (synced from Youfoodz My Deliveries on Mon 5 Oct). */
-const YF_W41_URL='https://www.youfoodz.com/my-deliveries/2026-W41';
-const YF_ITEMS=[
- {id:'w41-alfredo',name:'Creamy Chicken Alfredo',kcal:626,protein:40.7,carbs:59.8,fat:23.6,
-  ingredients:'cheese tortellini, chicken, cream, Parmesan, mushrooms',
-  note:'Creamy tortellini with chicken and mushrooms.',url:YF_W41_URL},
- {id:'w41-portuguese',name:'Portuguese Chicken & Rice — with Paprika & Turmeric Spice',kcal:718,protein:44.9,carbs:86.5,fat:19.9,
-  allergens:'milk, sulphites',
-  ingredients:'basmati rice, chicken, thickened cream, corn, tomato sauce, sweet chilli, sriracha, smoked paprika, garlic, turmeric',
-  note:'Paprika & turmeric spiced chicken with rice.',flag:'Contains tomato sauce',url:YF_W41_URL},
- {id:'w41-carbonara',name:'Chicken Carbonara — with Ham & Mushrooms',kcal:542,protein:41,carbs:54.4,fat:16.2,
-  allergens:'milk, gluten, wheat, egg',
-  ingredients:'fettuccine, chicken, ham, mushrooms, cream, Parmesan',
-  note:'Contains pork (ham).',flag:'Contains pork (ham)',url:YF_W41_URL},
- {id:'w41-sliced-1',name:'Sliced Chicken Breast (Double Up) — pack 1 of 2',kcal:224,protein:42.9,carbs:3.2,fat:3.7,
-  ingredients:'chicken breast, spices (200g serve)',
-  note:'Plain sliced chicken — great add-on to a home meal or a high-protein snack.',url:YF_W41_URL},
- {id:'w41-sliced-2',name:'Sliced Chicken Breast (Double Up) — pack 2 of 2',kcal:224,protein:42.9,carbs:3.2,fat:3.7,
-  ingredients:'chicken breast, spices (200g serve)',
-  note:'Plain sliced chicken — great add-on to a home meal or a high-protein snack.',url:YF_W41_URL},
- {id:'w41-penne',name:'Chicken & Spinach Penne',kcal:515,protein:41.5,carbs:47.2,fat:16.8,
-  ingredients:'chicken, penne, cream, Parmesan, spinach',
-  note:'Creamy chicken and spinach pasta.',url:YF_W41_URL},
- {id:'w41-mushroom',name:'Creamy Mushroom Chicken',kcal:295,protein:21.1,carbs:28.3,fat:8.9,
-  ingredients:'chicken, sweet potato, broccoli, peas, mushrooms',
-  note:'Lighter meal (only ~21g protein) — pair with a shake or Greek yoghurt. Sweet potato, not mash.',url:YF_W41_URL}
-];
-const YF_NEXT_NOTE='Next box Wed 14 Oct (editable until Thu 8 Oct).';
+/* Upcoming W41 (Wed 7 Oct) — not primary UI; Monday sync / next delivery will replace. See MEAL-PLAN-W41.md */
+const YF_W41_NOTE='Next delivery Wed 7 Oct 2026 (W41) — app will switch on sync; data kept in MEAL-PLAN-W41.md';
 
 function mkPlanItem(id,name,slot,kcal,protein,carbs,source,extra){
  const o={id,name,slot,kcal,protein,carbs:carbs==null?null:carbs,source:source||'home',eaten:false};
@@ -1372,28 +1353,14 @@ function defaultMeals(){
   mkPlanItem('m04-sw','Protein pudding','snack',160,25,8,'home',Object.assign({fat:3},R('Protein pudding','','milk',''))),
   mkPlanItem('m04-tr','Treat allowance (~180 kcal)','treat',180,1,20,'home',Object.assign({fat:8},R('~180 kcal','Optional','','')))
  ]};
- // W41 plan week Mon 5 – Sun 11 Oct: same home suggestions shifted a week (fresh ids), new notes. Youfoodz stay a separate checklist.
- const W41_NOTES={
-  '2026-10-05':'Work 12–9 · late dinner. W41 Youfoodz arrive Wed — use up any W40 leftovers first.',
-  '2026-10-06':'Work 8–6. Pack a leftover W40 Youfoodz for work if you still have one.',
-  '2026-10-07':'OFF · W41 Youfoodz delivery today (Cecil Park). Tick them on the checklist when you eat them.',
-  '2026-10-08':'Work 12–9. Easy post-9pm heat-up: tick a Youfoodz (Alfredo, Penne, Carbonara).',
-  '2026-10-09':'Work 8–6. Take a Youfoodz to work — Sliced Chicken packs make a quick protein top-up.',
-  '2026-10-10':'OFF · training day · higher carbs around training.',
-  '2026-10-11':'OFF · finish remaining Youfoodz before next Wed delivery.'
- };
- Object.keys(W41_NOTES).forEach(k=>{
-  const src=days[keyAdd(k,-7)];if(!src)return;
-  days[k]={notes:W41_NOTES[k],items:src.items.map(it=>Object.assign(clone(it),{id:'w41-'+it.id,eaten:false}))};
- });
  const lib={};const favIds=[];
  MEAL_FAVOURITES.forEach(f=>{lib[f.id]=favToLibraryEntry(f);favIds.push(f.id);});
  return {
   delivery:{
-   week:'2026-W41',date:'2026-10-07',area:'Cecil Park 2178',status:'On its way',source:'seed',
+   week:'2026-W40',date:'2026-09-30',area:'Cecil Park 2178',status:'Delivered',source:'seed',
    items:YF_ITEMS.map(x=>Object.assign({eaten:false},x))
   },
-  planWeekStart:'2026-10-05',
+  planWeekStart:'2026-09-28',
   days,
   targets:Object.assign({},MEAL_TARGETS),
   log:{},
@@ -1413,45 +1380,26 @@ function ensureMeals(){
    week:d.delivery.week,date:d.delivery.date,area:d.delivery.area||S.meals.delivery.area,
    status:d.delivery.status||S.meals.delivery.status,source:S.meals.delivery.source||'seed'
   });
-  const keep=(S.meals.delivery.items||[]).filter(i=>i&&i.leftover);
   S.meals.delivery.items=d.delivery.items.map(def=>{
    const prev=byId[def.id];
    if(!prev)return clone(def);
    // Preserve eaten / eatenOn; seed wins for macros/recipe/damaged
    return Object.assign({},def,{eaten:!!prev.eaten,eatenOn:prev.eatenOn||def.eatenOn||null,slot:prev.slot||def.slot||null});
-  }).concat(keep);
+  });
  }else{
   const manualFuture=S.meals.delivery.source==='manual'&&String(S.meals.delivery.week)>String(d.delivery.week);
   if(manualFuture){
    S.meals.delivery.items=(S.meals.delivery.items||[]).map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten}));
   }else{
-   const old=S.meals.delivery,newer=String(d.delivery.week)>String(old.week||'');
-   let carry=[];
-   if(newer){
-    // New delivery week: move ticked meals into that day's log so history keeps their macros,
-    // and carry uneaten (non-damaged) meals over as leftovers you can still tick.
-    if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
-    (old.items||[]).forEach(it=>{
-     if(!it||it.leftover&&!it.eaten)return;
-     if(it.eaten&&!it.damaged&&it.eatenOn){
-      const aid='yfa-'+(old.week||'')+'-'+it.id;
-      if(!Array.isArray(S.meals.log[it.eatenOn]))S.meals.log[it.eatenOn]=[];
-      if(!S.meals.log[it.eatenOn].some(r=>r&&r.id===aid))S.meals.log[it.eatenOn].push({id:aid,name:it.name+' (Youfoodz)',kcal:n0(it.kcal),protein:n0(it.protein),carbs:n0(it.carbs),fat:it.fat==null?null:n0(it.fat),barcode:null,t:Date.now(),source:'youfoodz',slot:normSlot(it.slot||'lunch')});
-     }
-    });
-    carry=(old.items||[]).filter(it=>it&&!it.eaten&&!it.damaged&&!it.leftover).map(it=>Object.assign(clone(it),{
-     id:'lo-'+(old.week||'')+'-'+it.id,name:it.name+' (left from '+(old.week||'last week')+')',leftover:true,eaten:false,eatenOn:null,slot:null}));
-   }
+   // Adopt seed (e.g. stored W41 → seed W40)
    S.meals.delivery=clone(d.delivery);
-   S.meals.delivery.items=S.meals.delivery.items.concat(carry);
   }
  }
  // Plan week: force to seed when different (W41 week → W40 week)
  if(S.meals.planWeekStart!==d.planWeekStart){
   S.meals.planWeekStart=d.planWeekStart;
   if(!S.meals.days||typeof S.meals.days!=='object')S.meals.days={};
-  const wk=Array.from({length:7},(_,i)=>keyAdd(d.planWeekStart,i));
-  Object.keys(d.days).forEach(k=>{if(wk.includes(k)||!S.meals.days[k])S.meals.days[k]=clone(d.days[k]);});
+  Object.keys(d.days).forEach(k=>{S.meals.days[k]=clone(d.days[k]);});
  }else if(!S.meals.days||typeof S.meals.days!=='object'){
   S.meals.days=d.days;
  }else{
@@ -1460,7 +1408,7 @@ function ensureMeals(){
    else{
     const byId={};(S.meals.days[k].items||[]).forEach(i=>{if(i&&i.id)byId[i.id]=i;});
     S.meals.days[k]={
-     notes:d.days[k].notes,
+     notes:(S.meals.days[k].notes!=null&&S.meals.days[k].notes!=='')?S.meals.days[k].notes:d.days[k].notes,
      items:d.days[k].items.map(def=>{
       const prev=byId[def.id];
       return prev?Object.assign({},def,{eaten:!!prev.eaten}):clone(def);
@@ -1566,15 +1514,15 @@ function vMeals(){
  const k=mealDayKey(),days=planDays(),del=S.meals.delivery,eaten=dayEatenTotals(k),burn=cardioKcal(k),tot=Object.assign({},eaten,{kcal:eaten.kcal-burn}),planTot=dayPlannedTotals(k),day=dayPlan(k);
  const wd=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
  const st=del.status?` · ${esc(del.status)}`:'';
- let h=`<h1>Meals</h1><div class="muted">${esc(del.week||'')} · Youfoodz checklist + home suggestions · local only</div>`;
+ let h=`<h1>Meals</h1><div class="muted">W40 · Youfoodz checklist + home suggestions · local only</div>`;
  // Delivery card — checklist, no day assignment
- const yfAvail=(del.items||[]).filter(i=>!i.damaged&&!i.leftover);
+ const yfAvail=(del.items||[]).filter(i=>!i.damaged);
  const yfDone=yfAvail.filter(i=>i.eaten).length;
  h+=`<div class="card hero"><div class="hrow"><b>🍽️ Youfoodz this week</b><span class="muted">${yfDone}/${yfAvail.length} eaten</span></div>
   <div class="muted" style="margin-top:4px">Delivery ${fmtKeyDate(del.date)} · ${esc(del.area||'')} · ${esc(del.week)}${st}. Tick when you eat one — macros go to <b>the selected day</b> below (not pre-assigned).</div>
-  <div class="hint up" style="margin-top:8px">${esc(YF_NEXT_NOTE)}</div>
+  <div class="hint up" style="margin-top:8px">${esc(YF_W41_NOTE)}</div>
   <div style="margin-top:8px">${(del.items||[]).map(it=>{
-   const flag=(it.flag?`<div class="hint warn" style="margin:4px 0 0">⚠ ${esc(it.flag)}</div>`:'')+(it.leftover?`<div class="muted" style="margin:4px 0 0;font-size:12px">Leftover from last box — tick if you eat it</div>`:'');
+   const flag=it.flag?`<div class="hint warn" style="margin:4px 0 0">⚠ ${esc(it.flag)}</div>`:'';
    const dmg=it.damaged;
    const status=dmg?`<div class="hint warn" style="margin:4px 0 0">🚫 ${esc(it.status||'Damaged · credit')}</div>`:
     (it.eaten&&it.eatenOn?`<div class="muted" style="margin:4px 0 0;font-size:12px">Logged → ${esc(slotName(it.slot))} · ${esc(fmtKeyShort(it.eatenOn))}</div>`:'');
