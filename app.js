@@ -196,13 +196,13 @@ let S=load();
 if(S._chestAdd&&S.active&&Array.isArray(S.active.exercises)&&!S.active.exercises.some(e=>/chest fly|pec deck/i.test(e.name||''))&&(S.active.planId==='upperA'||S.active.planId==='upperB')){
  const id=S.active.planId,letter=S.active.blockLetter==='B'?'B':'A';
  const name=id==='upperA'?(letter==='B'?'Pec deck':'Cable chest fly'):(letter==='B'?'Cable chest fly':'Pec deck');
- const e=mkEx(ex(name,id==='upperA'?3:2,'12-15',{press:1}));stampLoad(e);
+ const e=mkEx(ex(name,id==='upperA'?3:2,'12-15',{press:1}));
  const after=id==='upperA'?'Neutral-grip DB press (low incline)':'Machine chest press';
  let i=S.active.exercises.findIndex(x=>x.name===after);if(i<0)i=S.active.exercises.findIndex(x=>/press/i.test(x.name||'')&&!x.abs);
  S.active.exercises.splice(i>=0?i+1:S.active.exercises.length,0,e);
 }
 if(S._frontDelt&&S.active&&Array.isArray(S.active.exercises)){
- S.active.exercises.forEach((e,i)=>{if(!e||!/landmine press|plate front raise|front raise/i.test(e.name||''))return;if((e.sets||[]).some(st=>st&&st.done))return;const neu=mkEx(ex('DB lateral raise',3,'15',{press:1}));stampLoad(neu);S.active.exercises[i]=neu;});
+ S.active.exercises.forEach((e,i)=>{if(!e||!/landmine press|plate front raise|front raise/i.test(e.name||''))return;if((e.sets||[]).some(st=>st&&st.done))return;S.active.exercises[i]=mkEx(ex('DB lateral raise',3,'15',{press:1}));});
 }
 delete S._chestAdd;delete S._frontDelt;
 if(S._absMerged||S._deduped){delete S._absMerged;delete S._deduped;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -316,7 +316,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6e</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6f</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, hammer curl, standing calf, cable crunch':'rear delt, machine lateral, cable curl, seated calf, hanging knee raise'}</div>
@@ -348,7 +348,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6e</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6f</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
