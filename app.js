@@ -243,7 +243,8 @@ function nextLoad(e,bi){if(!e||e.cardio)return null;const last=lastFor(e.name,S.
  return {kg:w,note:'Week '+bi.week+' · stay at '+w+' kg until every set hits the top reps.'};}
 function stampLoad(e,bi){if(!e||e.cardio||!Array.isArray(e.sets)||e.sets.some(s=>s.done))return;const o=nextLoad(e,bi);
  if(!o){e.sets.forEach(st=>{st.w='';});delete e.ol;return;}
- e.sets.forEach(st=>{st.w=String(o.kg);});e.ol=o.note;}
+ const last=lastFor(e.name,S.active&&S.active.id),ls=last?doneSets(last):[],mx=Math.max.apply(null,ls.map(x=>num(x.w)||0)),d=o.kg-mx;
+ e.sets.forEach((st,j)=>{const p=ls[j]||ls[ls.length-1];const pw=p&&num(p.w);st.w=String(pw>0?roundLoad(Math.max(0,pw+d),loadStep(mx,e.main)):o.kg);});e.ol=o.note;}
 function suggested(){const last=sortedSessions().find(s=>ROTATION.includes(s.planId));
  const id=last?ROTATION[(ROTATION.indexOf(last.planId)+1)%ROTATION.length]:ROTATION[0];return planById(id)?id:(S.plan[0]&&S.plan[0].id);}
 function allExerciseNames(){const set=new Set();S.plan.forEach(p=>p.exercises.forEach(e=>set.add(e.name)));S.sessions.forEach(s=>s.exercises.forEach(e=>set.add(e.name)));return [...set].sort();}
@@ -309,7 +310,7 @@ function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),toda
 
 // ---- SESSION ----
 function vSession(){const s=S.active;if(!s){view='home';return vHome();}
- if(!s._olv2){const bi=blockInfo();s.exercises.forEach(e=>{if(!e.cardio&&Array.isArray(e.sets)&&!e.sets.some(x=>x.done)&&e.sets.every(x=>!x.w))stampLoad(e,bi);});s._olv2=1;save();}
+ if(!s._olv3){const bi=blockInfo();s.exercises.forEach(e=>{if(!e.cardio&&Array.isArray(e.sets)&&!e.sets.some(x=>x.done)&&e.sets.every(x=>!x.w))stampLoad(e,bi);});s._olv3=1;save();}
  const nDone=s.exercises.reduce((a,e)=>a+(e.cardio?(e.done?1:0):doneSets(e).length),0);
  const wu=/^lower/i.test(s.planId)?'wuLower':'wuUpper',wp=routineProg(wu,todayKey());
  const sessSec=Math.floor((Date.now()-s.start)/1000);
