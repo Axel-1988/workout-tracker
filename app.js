@@ -134,7 +134,9 @@ function catalogNames(){const set=new Set();SWAP_GROUPS.forEach(g=>g.names.forEa
 const nameKey=n=>String(n||'').trim().toLowerCase();
 function namesMatch(a,b){const x=nameKey(a),y=nameKey(b);if(!x||!y)return false;if(x===y)return true;
  const norm=s=>s.replace(/\([^)]*\)/g,'').replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
- const nx=norm(x),ny=norm(y);return !!nx&&nx===ny;}
+ const nx=norm(x),ny=norm(y);if(nx&&nx===ny)return true;
+ const words=s=>s.split(' ').filter(w=>w.length>2);const wa=words(nx),wb=words(ny);if(wa.length<2||wb.length<2)return false;
+ const [sh,lg]=wa.length<=wb.length?[wa,new Set(wb)]:[wb,new Set(wa)];return sh.every(w=>lg.has(w));}
 function todayNames(){const set=new Set();const add=n=>{const k=nameKey(n);if(k)set.add(k);};
  const day=SCHEDULE[wday(Date.now())],p=day&&planById(day);
  if(p)applyBlockLetter(p.exercises,blockInfo().letter).forEach(e=>add(e.name));
@@ -226,9 +228,10 @@ const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?
 function sortedSessions(){return S.sessions.slice().sort((a,b)=>b.start-a.start);}
 function setKg(st){if(!st)return null;const raw=st.w!=null&&String(st.w).trim()!==''?st.w:(st.kg!=null&&String(st.kg).trim()!==''?st.kg:st.weight);if(raw==null||String(raw).trim()==='')return null;return num(raw);}
 function loggedSets(e){const sets=Array.isArray(e&&e.sets)?e.sets:[];const done=sets.filter(s=>s&&s.done&&setKg(s)!=null);return done.length?done:sets.filter(s=>s&&setKg(s)!=null);}
+function performed(x){if(!x)return false;if(x.cardio)return !!num(x.minutes);if(loggedSets(x).length||doneSets(x).length)return true;return Array.isArray(x.sets)&&x.sets.some(st=>st&&String(st.r||'').trim()!=='');}
 function lastFor(name,excludeId){const n=nameKey(name);if(!n)return null;
  for(const s of sortedSessions()){if(!s||s.id===excludeId||!Array.isArray(s.exercises))continue;
-  const e=s.exercises.find(x=>x&&namesMatch(x.name,n)&&(x.cardio?num(x.minutes):loggedSets(x).length));
+  const e=s.exercises.find(x=>x&&namesMatch(x.name,n)&&performed(x));
   if(e)return Object.assign({date:s.start},e);}
  return null;}
 function hitTop(last){const top=topReps(last.target&&last.target.reps);if(!top)return false;const d=doneSets(last);
@@ -293,7 +296,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6b</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6c</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, hammer curl, standing calf, cable crunch':'rear delt, machine lateral, cable curl, seated calf, hanging knee raise'}</div>
@@ -325,7 +328,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6b</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6c</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -339,11 +342,14 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  <div class="row" style="margin-top:14px"><button class="btn danger" data-a="discard">Discard</button><button class="btn primary grow" data-a="finish">✓ Finish &amp; save</button></div>`;
  return h;}
 function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
- if(last){const lsShow=loggedSets(last);const lt=last.cardio?`${last.minutes} min${last.kcal!=null&&last.kcal!==''?' · '+last.kcal+' kcal':''}`:lsShow.map(x=>`${setKg(x)||0}kg×${x.r||0}`).join(', ');
+ if(last){const lsShow=loggedSets(last);
+  if(!e.cardio&&!lsShow.length)hints+=`<div class="last">Last (${fmtShort(last.date)}): this exercise was saved, but no kilograms were stored, so they can’t be copied in.</div>`;
+  else{const lt=last.cardio?`${last.minutes} min${last.kcal!=null&&last.kcal!==''?' · '+last.kcal+' kcal':''}`:lsShow.map(x=>`${setKg(x)||0}kg×${x.r||0}`).join(', ');
   hints+=`<div class="last">Last (${fmtShort(last.date)}): ${esc(lt)}${last.press&&last.pain!=null?` · pain ${last.pain}/10`:''}${last.durationSec?` · work ${fmtMMSS(last.durationSec)}`:''}</div>`;
   if(e.press&&last.pain!=null&&last.pain>3)hints+=`<div class="hint warn">⚠ Pain was ${last.pain}/10 last time — keep weight same or lighter</div>`;
-  else if(!e.cardio&&hitTop(last))hints+=`<div class="hint up">⬆ Go up in weight — you hit the top of the rep range on all sets</div>`;
- }else hints+=`<div class="last">No previous log</div>`;
+  else if(!e.cardio&&hitTop(last))hints+=`<div class="hint up">⬆ Go up in weight — you hit the top of the rep range on all sets</div>`;}}
+ else{const prior=sortedSessions().find(s=>s&&s.id!==S.active.id&&(s.planId===S.active.planId||nameKey(s.name)===nameKey(S.active.name))&&Array.isArray(s.exercises));
+  hints+=prior?`<div class="last">No saved kg for this exercise. Last ${esc(prior.name)} on this phone was ${fmtShort(prior.start)}.</div>`:`<div class="last">No earlier ${esc(S.active.name)} is saved. A workout is kept only after Finish & save.</div>`;}
  if(e.ol)hints+=`<div class="hint up">${esc(e.ol)}</div>`;
  const tags=(e.main?'<span class="tag main">MAIN</span>':'')+(e.abs?'<span class="tag abs">ABS</span>':'')+(e.press?'<span class="tag">PRESS</span>':'')+(e.cardio?'<span class="tag cardio">CARDIO</span>':'');
  let h=`<div class="card ex" id="ex${i}"><h3><span><button class="linkbtn" data-a="demo" data-n="${esc(e.name)}">${esc(e.name)}</button>${tags}</span><span class="muted" style="white-space:nowrap">${e.target.sets}×${esc(e.target.reps)}</span></h3>${hints}`;
@@ -383,7 +389,7 @@ function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
  return h+'</div>';}
 function mkEx(t){const e={name:t.name,press:!!t.press,main:!!t.main,cardio:!!t.cardio,abs:!!t.abs,target:{sets:Math.max(1,parseInt(t.sets)||1),reps:String(t.reps||'')},notes:'',pain:null,durationSec:0};
  if(e.cardio){e.minutes='';e.kcal=null;e.done=false;}else e.sets=Array.from({length:e.target.sets},()=>({w:'',r:'',done:false}));return e;}
-function startSession(id){if(S.active&&!confirm('A session is already in progress. Discard it and start a new one?'))return;
+function startSession(id){if(S.active){if(!confirm('Save the session in progress, then start a new one?'))return;flushSetInputs();const prev=S.active;prev.end=Date.now();prev.exercises.forEach(e=>{swFreeze(e);delete e._showNote;delete e._swOn;delete e._swT0;if(!e.durationSec)delete e.durationSec;});const worth=prev.exercises.some(e=>e&&(e.cardio?num(e.minutes):performed(e)));if(worth)S.sessions.push(prev);S.active=null;}
  const p=planById(id),bi=blockInfo();
  let raw=p?applyBlockLetter(p.exercises,bi.letter):[];
  if(bi.deload)raw=raw.map(e=>{e=clone(e);if(!e.cardio)e.sets=deloadSets(e.sets);return e;});
