@@ -132,6 +132,9 @@ const DAY_GROUPS={upperA:['back','chest','shoulders','arms','abs'],upperB:['back
 function groupsForPlan(planId){const ids=DAY_GROUPS[planId]||SWAP_GROUPS.map(g=>g.id);return ids.map(id=>SWAP_GROUPS.find(g=>g.id===id)).filter(Boolean);}
 function catalogNames(){const set=new Set();SWAP_GROUPS.forEach(g=>g.names.forEach(n=>set.add(n)));allExerciseNames().forEach(n=>set.add(n));return [...set].sort((a,b)=>a.localeCompare(b));}
 const nameKey=n=>String(n||'').trim().toLowerCase();
+function namesMatch(a,b){const x=nameKey(a),y=nameKey(b);if(!x||!y)return false;if(x===y)return true;
+ const norm=s=>s.replace(/\([^)]*\)/g,'').replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+ const nx=norm(x),ny=norm(y);return !!nx&&nx===ny;}
 function todayNames(){const set=new Set();const add=n=>{const k=nameKey(n);if(k)set.add(k);};
  const day=SCHEDULE[wday(Date.now())],p=day&&planById(day);
  if(p)applyBlockLetter(p.exercises,blockInfo().letter).forEach(e=>add(e.name));
@@ -225,7 +228,7 @@ function setKg(st){if(!st)return null;const raw=st.w!=null&&String(st.w).trim()!
 function loggedSets(e){const sets=Array.isArray(e&&e.sets)?e.sets:[];const done=sets.filter(s=>s&&s.done&&setKg(s)!=null);return done.length?done:sets.filter(s=>s&&setKg(s)!=null);}
 function lastFor(name,excludeId){const n=nameKey(name);if(!n)return null;
  for(const s of sortedSessions()){if(!s||s.id===excludeId||!Array.isArray(s.exercises))continue;
-  const e=s.exercises.find(x=>x&&nameKey(x.name)===n&&(x.cardio?num(x.minutes):loggedSets(x).length));
+  const e=s.exercises.find(x=>x&&namesMatch(x.name,n)&&(x.cardio?num(x.minutes):loggedSets(x).length));
   if(e)return Object.assign({date:s.start},e);}
  return null;}
 function hitTop(last){const top=topReps(last.target&&last.target.reps);if(!top)return false;const d=doneSets(last);
@@ -243,12 +246,14 @@ function nextLoad(e,bi){if(!e||e.cardio)return null;const last=lastFor(e.name,S.
  const bot=bottomReps(last.target&&last.target.reps),missed=bot&&sets.some(s=>(num(s.r)||0)<bot);
  if(missed){const kg=Math.max(step,roundLoad(w-step,step));return {kg,note:'Week '+bi.week+' · '+kg+' kg (−'+step+'). Last time missed the bottom of the rep range.'};}
  return {kg:w,note:'Week '+bi.week+' · stay at '+w+' kg until every set hits the top reps.'};}
-function stampLoad(e,bi){if(!e||e.cardio||!Array.isArray(e.sets)||e.sets.some(s=>s.done))return false;const o=nextLoad(e,bi);
- const last=lastFor(e.name,S.active&&S.active.id),prev=last?loggedSets(last):[],same=o&&/same as last|stay at|Week 1/i.test(o.note);let changed=false;
- e.sets.forEach((st,j)=>{if(String(st.w||'').trim()!=='')return;let kg=null;
-  if(o&&!same)kg=o.kg;else{const p=prev[j]||prev[prev.length-1];kg=p?setKg(p):null;if(kg==null&&o)kg=o.kg;}
-  if(kg==null)return;st.w=String(kg);changed=true;});
- if(o)e.ol=o.note;else if(!prev.length)delete e.ol;return changed;}
+function stampLoad(e,bi){if(!e||e.cardio||!Array.isArray(e.sets))return false;if(!bi)bi=blockInfo();
+ const o=nextLoad(e,bi),last=lastFor(e.name,S.active&&S.active.id),prev=last?loggedSets(last):[];
+ if(!o&&!prev.length)return false;const same=!o||/same as last|stay at|Week 1/i.test(o.note||'');let changed=false;
+ e.sets.forEach((st,j)=>{if(!st||st.done||st.touched)return;const p=prev[j]||prev[prev.length-1]||{};
+  if(String(st.w||'').trim()===''){let kg=null;if(o&&!same)kg=o.kg;else{kg=setKg(p);if(kg==null&&o)kg=o.kg;}
+   if(kg!=null){st.w=String(kg);changed=true;}}
+  if(String(st.r||'').trim()===''&&p&&p.r!=null&&String(p.r).trim()!==''){st.r=String(p.r);changed=true;}});
+ if(o)e.ol=o.note;return changed;}
 function suggested(){const last=sortedSessions().find(s=>ROTATION.includes(s.planId));
  const id=last?ROTATION[(ROTATION.indexOf(last.planId)+1)%ROTATION.length]:ROTATION[0];return planById(id)?id:(S.plan[0]&&S.plan[0].id);}
 function allExerciseNames(){const set=new Set();S.plan.forEach(p=>p.exercises.forEach(e=>set.add(e.name)));S.sessions.forEach(s=>s.exercises.forEach(e=>set.add(e.name)));return [...set].sort();}
@@ -288,7 +293,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain · Updated 2 Oct &gt; 3/10</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6b</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, hammer curl, standing calf, cable crunch':'rear delt, machine lateral, cable curl, seated calf, hanging knee raise'}</div>
@@ -320,7 +325,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''}</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6b</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -334,7 +339,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  <div class="row" style="margin-top:14px"><button class="btn danger" data-a="discard">Discard</button><button class="btn primary grow" data-a="finish">✓ Finish &amp; save</button></div>`;
  return h;}
 function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
- if(last){const lt=last.cardio?`${last.minutes} min${last.kcal!=null&&last.kcal!==''?' · '+last.kcal+' kcal':''}`:doneSets(last).map(x=>`${num(x.w)||0}kg×${x.r||0}`).join(', ');
+ if(last){const lsShow=loggedSets(last);const lt=last.cardio?`${last.minutes} min${last.kcal!=null&&last.kcal!==''?' · '+last.kcal+' kcal':''}`:lsShow.map(x=>`${setKg(x)||0}kg×${x.r||0}`).join(', ');
   hints+=`<div class="last">Last (${fmtShort(last.date)}): ${esc(lt)}${last.press&&last.pain!=null?` · pain ${last.pain}/10`:''}${last.durationSec?` · work ${fmtMMSS(last.durationSec)}`:''}</div>`;
   if(e.press&&last.pain!=null&&last.pain>3)hints+=`<div class="hint warn">⚠ Pain was ${last.pain}/10 last time — keep weight same or lighter</div>`;
   else if(!e.cardio&&hitTop(last))hints+=`<div class="hint up">⬆ Go up in weight — you hit the top of the rep range on all sets</div>`;
@@ -742,7 +747,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t
 document.addEventListener('input',e=>{const t=e.target,f=t.dataset.f;
  if(t.id==='phDate'){phForm.date=t.value;if(phForm.kg==null){const k=document.getElementById('phKg');if(k)k.value=bodyOn(t.value);}}else if(t.id==='phKg')phForm.kg=t.value;else if(t.id==='phNote')phForm.note=t.value;
  if(!f)return;
- if(f==='w'||f==='r'){S.active.exercises[+t.dataset.i].sets[+t.dataset.j][f]=t.value.trim();save();}
+ if(f==='w'||f==='r'){const st=S.active.exercises[+t.dataset.i].sets[+t.dataset.j];st[f]=t.value.trim();st.touched=1;save();}
  else if(f==='min'){S.active.exercises[+t.dataset.i].minutes=t.value;save();}
  else if(f==='ckcal'){const v=t.value.trim();S.active.exercises[+t.dataset.i].kcal=v===''?null:(num(v));save();}
  else if(f==='sNotes'){S.active.notes=t.value;save();}
