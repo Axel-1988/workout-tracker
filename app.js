@@ -235,7 +235,6 @@ function nextLoad(e,bi){if(!e||e.cardio)return null;const last=lastFor(e.name,S.
  if(!last)return null;const sets=doneSets(last);const ws=sets.map(s=>num(s.w)).filter(n=>n>0);if(!ws.length)return null;
  const w=Math.max.apply(null,ws),step=loadStep(w,e.main),pain=e.press&&last.pain!=null&&last.pain>3;
  if(bi.deload){const kg=Math.max(step,roundLoad(w*0.9,step));return {kg,note:'Deload week · '+kg+' kg (about 90% of '+w+' kg)'};}
- if(bi.week<=1)return {kg:w,note:'Week 1 · '+w+' kg, same as last time. The load steps up from week 2 if every set hits the top reps.'};
  if(pain)return {kg:w,note:'Stay at '+w+' kg — pain was '+last.pain+'/10 last time'};
  if(hitTop(last)){const kg=roundLoad(w+step,step);return {kg,note:'Week '+bi.week+' · '+kg+' kg (+'+step+' from '+w+' kg). You hit the top of the rep range.'};}
  const bot=bottomReps(last.target&&last.target.reps),missed=bot&&sets.some(s=>(num(s.r)||0)<bot);
@@ -309,6 +308,7 @@ function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),toda
 
 // ---- SESSION ----
 function vSession(){const s=S.active;if(!s){view='home';return vHome();}
+ if(!s._olv2){const bi=blockInfo();s.exercises.forEach(e=>{if(!e.cardio&&Array.isArray(e.sets)&&!e.sets.some(x=>x.done)&&e.sets.every(x=>!x.w))stampLoad(e,bi);});s._olv2=1;save();}
  const nDone=s.exercises.reduce((a,e)=>a+(e.cardio?(e.done?1:0):doneSets(e).length),0);
  const wu=/^lower/i.test(s.planId)?'wuLower':'wuUpper',wp=routineProg(wu,todayKey());
  const sessSec=Math.floor((Date.now()-s.start)/1000);
