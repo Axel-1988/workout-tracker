@@ -11,7 +11,7 @@ const ABS_SUNDAY=[ex('Dead bug',2,'8 each side',{abs:1}),ex('Side plank (knees)'
 const DEFAULT_PLAN=[
  {id:'upperA',name:'Upper A',exercises:[ex('Chest-supported row',4,'8-10'),ex('Lat pulldown (neutral grip)',4,'8-10'),ex('Neutral-grip DB press (low incline)',3,'10-12',{press:1}),ex('Cable chest fly',3,'12-15',{press:1}),ex('Face pull',3,'15'),ex('Cable lateral raise',3,'15',{press:1}),ex('Hammer curl',3,'12'),ex('Band external rotation',2,'15'),...ABS_UPPER]},
  {id:'lowerA',name:'Lower A',exercises:[ex('Hack squat',4,'6-8',{main:1}),ex('Romanian deadlift',3,'8'),ex('Leg press',3,'10-12'),ex('Lying leg curl',3,'12'),ex('Standing calf raise',4,'12-15'),...ABS_LOWER]},
- {id:'upperB',name:'Upper B',exercises:[ex('Pull-ups / assisted',4,'AMRAP'),ex('Seated cable row',3,'12'),ex('Machine chest press',3,'12',{press:1}),ex('Pec deck',2,'12-15',{press:1}),ex('Landmine press',3,'10 each side',{press:1}),ex('Rear delt fly',3,'15'),ex('Cable curl',3,'12'),ex('Rope pushdown',2,'15',{press:1}),...ABS_UPPER]},
+ {id:'upperB',name:'Upper B',exercises:[ex('Pull-ups / assisted',4,'AMRAP'),ex('Seated cable row',3,'12'),ex('Machine chest press',3,'12',{press:1}),ex('Pec deck',2,'12-15',{press:1}),ex('DB lateral raise',3,'15',{press:1}),ex('Rear delt fly',3,'15'),ex('Cable curl',3,'12'),ex('Rope pushdown',2,'15',{press:1}),...ABS_UPPER]},
  {id:'lowerB',name:'Lower B',exercises:[ex('Trap bar deadlift',3,'5-6',{main:1}),ex('Bulgarian split squat',3,'10 each'),ex('Hip thrust',3,'10-12'),ex('Leg extension',3,'15'),ex('Seated calf raise',3,'15'),...ABS_LOWER]},
  {id:'sunday',name:'Sunday Pull & Conditioning',exercises:[ex('Single-arm DB row',3,'10'),ex('Straight-arm pulldown',3,'12'),ex('Face pull',3,'15'),ex('Hammer curl',3,'12'),ex('Intervals',1,'20 min',{cardio:1}),...ABS_SUNDAY]}
 ];
@@ -99,8 +99,8 @@ const CARDIO_TYPES=['Treadmill walk — flat','Treadmill walk — incline','Trea
 // Same-muscle swaps when a machine is taken. Sets/reps stay; only the move changes.
 const SWAP_GROUPS=[
  {id:'back',label:'Back',names:['Chest-supported row','Lat pulldown (neutral grip)','Pull-ups / assisted','Seated cable row','Single-arm DB row','Straight-arm pulldown','Machine row','Chest-supported DB row','Wide-grip lat pulldown','Helms row','Inverted row','Dumbbell pullover']},
- {id:'chest',label:'Chest / press',names:['Neutral-grip DB press (low incline)','Machine chest press','Landmine press','Incline DB press','Flat DB press','Smith machine press','Cable chest fly','Pec deck','Push-up']},
- {id:'shoulders',label:'Shoulders',names:['Face pull','Rear delt fly','Cable lateral raise','Machine lateral raise','DB lateral raise','Reverse pec deck','Band pull-aparts','Plate front raise','Prone Y-raise (no weight)']},
+ {id:'chest',label:'Chest / press',names:['Neutral-grip DB press (low incline)','Machine chest press','Incline DB press','Flat DB press','Smith machine press','Cable chest fly','Pec deck','Push-up']},
+ {id:'shoulders',label:'Shoulders',names:['Face pull','Rear delt fly','Cable lateral raise','Machine lateral raise','DB lateral raise','Reverse pec deck','Band pull-aparts','Prone Y-raise (no weight)']},
  {id:'arms',label:'Arms',names:['Hammer curl','Cable curl','Rope pushdown','DB curl','Incline DB curl','EZ-bar curl','Overhead cable extension','Bayesian curl']},
  {id:'quads',label:'Quads',names:['Hack squat','Leg press','Bulgarian split squat','Leg extension','Goblet squat','Smith squat','Walking lunge','Step-up','Belt squat']},
  {id:'posterior',label:'Hamstrings / glutes',names:['Romanian deadlift','Trap bar deadlift','Hip thrust','Lying leg curl','Seated leg curl','Single-leg RDL','Good morning','Back extension','Cable pull-through','Swiss ball leg curl']},
@@ -189,6 +189,7 @@ function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.
   const after=p.id==='upperA'?'Neutral-grip DB press (low incline)':'Machine chest press';
   let i=p.exercises.findIndex(e=>e.name===after);if(i<0){const a=p.exercises.findIndex(e=>e.abs);i=a>=0?a-1:-1;}
   p.exercises.splice(i>=0?i+1:p.exercises.length,0,item);});s.settings.addedChestFly=1;s._deduped=1;s._chestAdd=1;}
+ if(!s.settings.droppedFrontDelt){(s.plan||[]).forEach(p=>{(p.exercises||[]).forEach(e=>{if(!e||!/landmine press|plate front raise|front raise/i.test(e.name||''))return;e.name='DB lateral raise';e.sets=3;e.reps='15';e.press=1;e.main=false;e.cardio=false;});});s.settings.droppedFrontDelt=1;s._deduped=1;s._frontDelt=1;}
  ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}});if(!s.block||typeof s.block!=='object')s.block={start:null,letter:'A',number:1};s.block.letter=(s.block.letter==='B'?'B':'A');s.block.number=Math.max(1,parseInt(s.block.number)||1);if(s.block.start&&!/^\d{4}-\d{2}-\d{2}$/.test(s.block.start))s.block.start=null;s.meals=s.meals&&typeof s.meals==='object'?s.meals:null;return s;}
 function load(){try{const r=localStorage.getItem(KEY);if(r)return normalize(JSON.parse(r));}catch(e){console.error(e)}return defaults();}
 let S=load();
@@ -200,7 +201,10 @@ if(S._chestAdd&&S.active&&Array.isArray(S.active.exercises)&&!S.active.exercises
  let i=S.active.exercises.findIndex(x=>x.name===after);if(i<0)i=S.active.exercises.findIndex(x=>/press/i.test(x.name||'')&&!x.abs);
  S.active.exercises.splice(i>=0?i+1:S.active.exercises.length,0,e);
 }
-delete S._chestAdd;
+if(S._frontDelt&&S.active&&Array.isArray(S.active.exercises)){
+ S.active.exercises.forEach((e,i)=>{if(!e||!/landmine press|plate front raise|front raise/i.test(e.name||''))return;if((e.sets||[]).some(st=>st&&st.done))return;const neu=mkEx(ex('DB lateral raise',3,'15',{press:1}));stampLoad(neu);S.active.exercises[i]=neu;});
+}
+delete S._chestAdd;delete S._frontDelt;
 if(S._absMerged||S._deduped){delete S._absMerged;delete S._deduped;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 writeScanVault(S.scans);
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));writeScanVault(S.scans);}catch(e){toast('⚠ Could not save: '+e.message)}}
@@ -312,7 +316,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6d</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6e</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, hammer curl, standing calf, cable crunch':'rear delt, machine lateral, cable curl, seated calf, hanging knee raise'}</div>
@@ -344,7 +348,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6d</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6e</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
