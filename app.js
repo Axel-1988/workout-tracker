@@ -329,7 +329,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6h</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6i</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, DB shrug, hammer curl, standing calf':'rear delt, machine lateral, cable shrug, cable curl, seated calf'}</div>
@@ -361,7 +361,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6h</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6i</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -744,7 +744,9 @@ const A={
  demoPause:t=>t.classList.toggle('paused'),
  tAdj:t=>{if(tAwaitStart)return;tEnd=Math.max(Date.now()+1000,tEnd+ +t.dataset.d*1000);document.getElementById('timer').classList.remove('fin');tick();},
  tStop:()=>{stopTimer();if(view==='session')render();},
- mealDay:t=>{mealDay=t.dataset.d;render();},
+ mealDay:t=>{mealDay=t.dataset.d;if(/^\d{4}-\d{2}-\d{2}$/.test(mealDay||'')&&mealMonth&&mealDay.slice(0,7)!==mealMonth)mealMonth=mealDay.slice(0,7);render();},
+ mealMonth:t=>{const cur=mealMonth||mealDayKey().slice(0,7);const [y,m]=cur.split('-').map(Number);const d=new Date(Date.UTC(y,m-1+(+t.dataset.d||0),1));mealMonth=d.toISOString().slice(0,7);render();},
+ mealToday:()=>{mealDay=todayKey();mealMonth=mealDay.slice(0,7);render();},
  mealTab:t=>{mealTab=t.dataset.v;render();},
  goal:t=>{const got=writeGoal(t.dataset.v);if(!got){toast('Could not set that goal');return;}save();render();toast(got.label+' · '+got.kcal+' kcal');},
  mealSlot:t=>{mealSlot=t.dataset.v;render();},
@@ -1477,7 +1479,7 @@ function ensureMeals(){
  });
  return S.meals;
 }
-let mealDay=null,mealTab='plan',mealSlot=null,sugOpen=false,yfOpen=false; // plan | log
+let mealDay=null,mealMonth=null,mealTab='plan',mealSlot=null,sugOpen=false,yfOpen=false; // plan | log
 const MEAL_SLOTS=[{id:'breakfast',label:'Breakfast'},{id:'lunch',label:'Lunch'},{id:'dinner',label:'Dinner'},{id:'snack',label:'Snacks'}];
 function defaultMealSlot(){
  const h=+new Intl.DateTimeFormat('en-AU',{timeZone:TZ,hour:'numeric',hourCycle:'h23'}).format(new Date());
@@ -1487,9 +1489,36 @@ function currentSlot(){if(!mealSlot)mealSlot=defaultMealSlot();return mealSlot;}
 function normSlot(s){if(s==='breakfast'||s==='lunch'||s==='dinner')return s;return 'snack';}
 function slotName(id){const s=MEAL_SLOTS.find(x=>x.id===normSlot(id));return s?s.label:'Snacks';}
 let bcStream=null,bcDetector=null,bcLoop=0,bcBusy=false;
-function mealDayKey(){ensureMeals();const tk=todayKey();if(mealDay&&S.meals.days[mealDay])return mealDay;
- if(S.meals.days[tk])return mealDay=tk;return mealDay=S.meals.planWeekStart;}
-function planDays(){ensureMeals();const s=S.meals.planWeekStart;return Array.from({length:7},(_,i)=>keyAdd(s,i));}
+function mealDayKey(){ensureMeals();if(/^\d{4}-\d{2}-\d{2}$/.test(mealDay||''))return mealDay;return mealDay=todayKey();}
+function monthCells(ym){
+ const [y,m]=ym.split('-').map(Number),first=y+'-'+String(m).padStart(2,'0')+'-01';
+ const lead=(new Date(Date.parse(first+'T00:00:00Z')).getUTCDay()+6)%7,start=keyAdd(first,-lead),cells=[];
+ for(let i=0;i<42;i++)cells.push(keyAdd(start,i));
+ while(cells.length>28&&cells.slice(-7).every(k=>k.slice(0,7)!==ym))cells.splice(-7,7);
+ return cells;
+}
+function dayMarked(k){
+ ensureMeals();
+ const log=S.meals.log&&S.meals.log[k];
+ if(Array.isArray(log)&&log.length)return true;
+ const p=S.meals.days&&S.meals.days[k];
+ if(p&&(p.items||[]).some(i=>i&&i.eaten))return true;
+ return (S.meals.delivery&&S.meals.delivery.items||[]).some(i=>i&&i.eaten&&!i.damaged&&i.eatenOn===k);
+}
+function mealCalHtml(selected){
+ const ym=mealMonth||selected.slice(0,7);mealMonth=ym;
+ const title=new Date(Date.parse(ym+'-01T00:00:00Z')).toLocaleDateString('en-AU',{timeZone:'UTC',month:'long',year:'numeric'});
+ const tk=todayKey();
+ const cells=monthCells(ym).map(k=>{
+  const cls=(k===selected?' on':'')+(k===tk?' tod':'')+(k.slice(0,7)!==ym?' out':'');
+  return `<button type="button" class="${cls}" data-a="mealDay" data-d="${k}">${+k.slice(8)}${dayMarked(k)?'<i></i>':'<i class="off"></i>'}</button>`;
+ }).join('');
+ return `<style>.mcal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}.mcal .dow{text-align:center;color:var(--mu);font-size:11px;font-weight:700;padding:2px 0}.mcal button{appearance:none;background:var(--card2);color:var(--tx);border:1px solid transparent;border-radius:10px;min-height:42px;padding:4px 0 2px;font:inherit;font-weight:700;font-size:14px}.mcal button.on{border-color:var(--ac);color:var(--ac)}.mcal button.tod{box-shadow:inset 0 0 0 2px var(--wa)}.mcal button.out{opacity:.38}.mcal i{display:block;width:5px;height:5px;border-radius:50%;background:var(--ac);margin:1px auto 0}.mcal i.off{background:transparent}</style>
+  <div class="card" style="padding:10px 10px 12px"><div class="hrow"><button type="button" class="btn sm" data-a="mealMonth" data-d="-1" aria-label="Previous month">‹</button><b>${esc(title)}</b><button type="button" class="btn sm" data-a="mealMonth" data-d="1" aria-label="Next month">›</button></div>
+  ${selected!==tk?'<button type="button" class="btn sm wide" data-a="mealToday">Jump to today</button>':''}
+  <div class="mcal">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="dow">${d}</div>`).join('')}${cells}</div>
+  <div class="muted" style="margin-top:6px">Tap a day to log it. Green dot means something is already logged.</div></div>`;
+}
 function dayPlan(k){ensureMeals();return S.meals.days[k]||{items:[],notes:''};}
 function dayLog(k){ensureMeals();if(!Array.isArray(S.meals.log[k]))S.meals.log[k]=[];return S.meals.log[k];}
 function n0(v){const n=num(v);return n==null?0:n;}
@@ -1558,8 +1587,7 @@ function mealRecipeModal(kind,id,day){
 }
 function vMeals(){
  ensureMeals();
- const k=mealDayKey(),days=planDays(),del=S.meals.delivery,eaten=dayEatenTotals(k),burn=cardioKcal(k),tot=Object.assign({},eaten,{kcal:eaten.kcal-burn}),planTot=dayPlannedTotals(k),day=dayPlan(k);
- const wd=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+ const k=mealDayKey(),del=S.meals.delivery,eaten=dayEatenTotals(k),burn=cardioKcal(k),tot=Object.assign({},eaten,{kcal:eaten.kcal-burn}),planTot=dayPlannedTotals(k),day=dayPlan(k);
  const st=del.status?` · ${esc(del.status)}`:'';
  let h=`<h1>Meals</h1><div class="muted">W40 · Youfoodz checklist + home suggestions · local only</div>`;
  // Delivery card — checklist, no day assignment
@@ -1582,8 +1610,8 @@ function vMeals(){
    </div>`;
   }).join('')}</div></details>`;
 
- // Day chips + slot the next log lands in
- h+=`<div class="chips">${days.map((d,i)=>`<button class="btn sm ${d===k?'on':''}" data-a="mealDay" data-d="${d}">${wd[i]} ${fmtKeyShort(d).split(' ')[0]}</button>`).join('')}</div>`;
+ // Calendar — any date, not just the seeded 28 Sep–4 Oct plan week
+ h+=mealCalHtml(k);
  h+=`<div class="slots">${MEAL_SLOTS.map(s=>`<button type="button" class="btn ${currentSlot()===s.id?'on':''}" data-a="mealSlot" data-v="${s.id}">${s.label}</button>`).join('')}</div>`;
  h+=`<div class="muted" style="margin:-2px 0 8px">Tick a meal to log it into <b>${esc(slotName(currentSlot()))}</b> on ${esc(fmtKeyShort(k))}. Bars are the full day.</div>`;
  h+=`<div class="seg"><button class="btn ${mealTab==='plan'?'on':''}" data-a="mealTab" data-v="plan">Week plan</button>
