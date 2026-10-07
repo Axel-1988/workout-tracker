@@ -320,7 +320,8 @@ let view='home',viewArg=null,progEx=null;
 function go(v,arg){view=v;viewArg=arg;render();window.scrollTo(0,0);}
 function render(){const V={home:vHome,session:vSession,history:vHistory,detail:vDetail,body:vBody,settings:vSettings,mobility:vMobility,photos:vPhotos,meals:vMeals}[view]||vHome;
  document.getElementById('app').innerHTML=V();renderNav();
- const sug=document.getElementById('sugBox');if(sug)sug.addEventListener('toggle',()=>{sugOpen=sug.open;});if(view==='photos')hydrateFull();if(view==='session'&&S.active){ensureClock();tickClocks();}else stopClock();}
+ const sug=document.getElementById('sugBox');if(sug)sug.addEventListener('toggle',()=>{sugOpen=sug.open;});
+ const yf=document.getElementById('yfBox');if(yf)yf.addEventListener('toggle',()=>{yfOpen=yf.open;});if(view==='photos')hydrateFull();if(view==='session'&&S.active){ensureClock();tickClocks();}else stopClock();}
 function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘','Mobility'],['photos','📸','Photos'],['body','⚖️','Body'],['meals','🍽️','Meals'],['history','📈','History']];
  const cur={home:'train',session:'train',settings:'train',detail:'history'}[view]||view;
  document.getElementById('nav').innerHTML=tabs.map(([v,i,l])=>`<button data-a="nav" data-v="${v}" class="${cur===v?'on':''} ${v==='train'&&S.active&&view!=='session'?'live':''}"><span>${i}</span>${v==='train'&&S.active?'● Train':l}</button>`).join('');}
@@ -328,7 +329,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6g</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6h</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, DB shrug, hammer curl, standing calf':'rear delt, machine lateral, cable shrug, cable curl, seated calf'}</div>
@@ -360,7 +361,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6g</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6h</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -1476,7 +1477,7 @@ function ensureMeals(){
  });
  return S.meals;
 }
-let mealDay=null,mealTab='plan',mealSlot=null,sugOpen=false; // plan | log
+let mealDay=null,mealTab='plan',mealSlot=null,sugOpen=false,yfOpen=false; // plan | log
 const MEAL_SLOTS=[{id:'breakfast',label:'Breakfast'},{id:'lunch',label:'Lunch'},{id:'dinner',label:'Dinner'},{id:'snack',label:'Snacks'}];
 function defaultMealSlot(){
  const h=+new Intl.DateTimeFormat('en-AU',{timeZone:TZ,hour:'numeric',hourCycle:'h23'}).format(new Date());
@@ -1564,7 +1565,7 @@ function vMeals(){
  // Delivery card — checklist, no day assignment
  const yfAvail=(del.items||[]).filter(i=>!i.damaged);
  const yfDone=yfAvail.filter(i=>i.eaten).length;
- h+=`<div class="card hero"><div class="hrow"><b>🍽️ Youfoodz this week</b><span class="muted">${yfDone}/${yfAvail.length} eaten</span></div>
+ h+=`<details class="card hero" id="yfBox" ${yfOpen?'open':''}><summary style="justify-content:space-between;width:100%"><b>🍽️ Youfoodz this week</b><span class="muted">${yfDone}/${yfAvail.length} eaten</span></summary>
   <div class="muted" style="margin-top:4px">Delivery ${fmtKeyDate(del.date)} · ${esc(del.area||'')} · ${esc(del.week)}${st}. Tick when you eat one — macros go to <b>the selected day</b> below (not pre-assigned).</div>
   <div class="hint up" style="margin-top:8px">${esc(YF_W41_NOTE)}</div>
   <div style="margin-top:8px">${(del.items||[]).map(it=>{
@@ -1579,7 +1580,7 @@ function vMeals(){
      <span><b>${esc(it.name)}</b><br><span class="muted">${it.kcal} kcal · ${it.protein}g P${it.carbs!=null?' · '+it.carbs+'g C':''}${it.fat!=null?' · '+it.fat+'g F':''}</span>${flag}${status}</span></label>
     <button type="button" class="btn sm" data-a="mealRecipe" data-kind="yf" data-id="${esc(it.id)}" title="Recipe / info" aria-label="Recipe">ⓘ</button>
    </div>`;
-  }).join('')}</div></div>`;
+  }).join('')}</div></details>`;
 
  // Day chips + slot the next log lands in
  h+=`<div class="chips">${days.map((d,i)=>`<button class="btn sm ${d===k?'on':''}" data-a="mealDay" data-d="${d}">${wd[i]} ${fmtKeyShort(d).split(' ')[0]}</button>`).join('')}</div>`;
