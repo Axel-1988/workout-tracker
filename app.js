@@ -329,7 +329,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6i</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6j</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, DB shrug, hammer curl, standing calf':'rear delt, machine lateral, cable shrug, cable curl, seated calf'}</div>
@@ -361,7 +361,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6i</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6j</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -374,40 +374,48 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  <label class="lbl">Session notes</label><textarea data-f="sNotes" rows="3" placeholder="How did it feel? Sleep, energy, shoulder/elbow…">${esc(s.notes)}</textarea>
  <div class="row" style="margin-top:14px"><button class="btn danger" data-a="discard">Discard</button><button class="btn primary grow" data-a="finish">✓ Finish &amp; save</button></div>`;
  return h;}
-function exCard(e,i){const last=lastFor(e.name,S.active.id);let hints='';
+function sidePair(text){return /each side|\beach\b|per side|a side/i.test(String(text||''));}
+function holdSecs(text){const m=String(text||'').match(/(\d+)\s*(?:-\s*\d+)?\s*s\b/i);return m?parseInt(m[1],10):0;}
+function isBodyweight(e){if(!e||e.cardio)return false;const n=nameKey(e.name);if(/cable|pallof|weighted|dumbbell|\bdb\b|barbell/.test(n))return false;return /dead bug|side plank|reverse crunch|bird dog|mcgill|hanging knee|ab wheel|\bplank\b|push-up|pushup|glute bridge/.test(n);}
+function exCard(e,i){const last=lastFor(e.name,S.active.id),bw=isBodyweight(e);let hints='';
  if(last){const lsShow=loggedSets(last);
-  if(!e.cardio&&!lsShow.length)hints+=`<div class="last">Last (${fmtShort(last.date)}): this exercise was saved, but no kilograms were stored, so they can’t be copied in.</div>`;
-  else{const lt=last.cardio?`${last.minutes} min${last.kcal!=null&&last.kcal!==''?' · '+last.kcal+' kcal':''}`:lsShow.map(x=>`${setKg(x)||0}kg×${x.r||0}`).join(', ');
+  if(!e.cardio&&!bw&&!lsShow.length)hints+=`<div class="last">Last (${fmtShort(last.date)}): this exercise was saved, but no kilograms were stored, so they can’t be copied in.</div>`;
+  else if(e.cardio||lsShow.length){const lt=last.cardio?`${last.minutes} min${last.kcal!=null&&last.kcal!==''?' · '+last.kcal+' kcal':''}`:(bw?lsShow.map(x=>`${x.r||'—'} reps`).join(', '):lsShow.map(x=>`${setKg(x)||0}kg×${x.r||0}`).join(', '));
   hints+=`<div class="last">Last (${fmtShort(last.date)}): ${esc(lt)}${last.press&&last.pain!=null?` · pain ${last.pain}/10`:''}${last.durationSec?` · work ${fmtMMSS(last.durationSec)}`:''}</div>`;
   if(e.press&&last.pain!=null&&last.pain>3)hints+=`<div class="hint warn">⚠ Pain was ${last.pain}/10 last time — keep weight same or lighter</div>`;
-  else if(!e.cardio&&hitTop(last))hints+=`<div class="hint up">⬆ Go up in weight — you hit the top of the rep range on all sets</div>`;}}
+  else if(!e.cardio&&!bw&&hitTop(last))hints+=`<div class="hint up">⬆ Go up in weight — you hit the top of the rep range on all sets</div>`;}}
  else{const prior=sortedSessions().find(s=>s&&s.id!==S.active.id&&(s.planId===S.active.planId||nameKey(s.name)===nameKey(S.active.name))&&Array.isArray(s.exercises));
-  hints+=prior?`<div class="last">No saved kg for this exercise. Last ${esc(prior.name)} on this phone was ${fmtShort(prior.start)}.</div>`:`<div class="last">No earlier ${esc(S.active.name)} is saved. A workout is kept only after Finish & save.</div>`;}
+  if(!bw)hints+=prior?`<div class="last">No saved kg for this exercise. Last ${esc(prior.name)} on this phone was ${fmtShort(prior.start)}.</div>`:`<div class="last">No earlier ${esc(S.active.name)} is saved. A workout is kept only after Finish & save.</div>`;}
  if(e.ol)hints+=`<div class="hint up">${esc(e.ol)}</div>`;
  const tags=(e.main?'<span class="tag main">MAIN</span>':'')+(e.abs?'<span class="tag abs">ABS</span>':'')+(e.press?'<span class="tag">PRESS</span>':'')+(e.cardio?'<span class="tag cardio">CARDIO</span>':'');
  let h=`<div class="card ex" id="ex${i}"><h3><span><button class="linkbtn" data-a="demo" data-n="${esc(e.name)}">${esc(e.name)}</button>${tags}</span><span class="muted" style="white-space:nowrap">${e.target.sets}×${esc(e.target.reps)}</span></h3>${hints}`;
  if(e.cardio){h+=`<div class="set ${e.done?'done':''}" style="grid-template-columns:1fr 1fr 60px"><input inputmode="numeric" type="number" data-f="min" data-i="${i}" value="${esc(e.minutes)}" placeholder="${topReps(e.target.reps)||parseInt(e.target.reps)||20} min" aria-label="minutes"><input inputmode="numeric" type="number" data-f="ckcal" data-i="${i}" value="${esc(e.kcal==null?'':e.kcal)}" placeholder="kcal" aria-label="calories burned"><button class="tick" data-a="tickC" data-i="${i}">✓</button></div>`;}
- else{const ls=last?loggedSets(last):[];
-  h+=`<div class="sethdr"><span>#</span><span>kg</span><span>reps</span><span>done</span></div>`;
+ else{const ls=last?loggedSets(last):[];const g=bw?' style="grid-template-columns:30px 1fr 60px"':'';
+  const hold=holdSecs(e.target.reps),paired=sidePair(e.target.reps)&&hold>0;
+  h+=`<div class="sethdr"${g}><span>#</span>${bw?'':'<span>kg</span>'}<span>${hold?'time':'reps'}</span><span>done</span></div>`;
   e.sets.forEach((st,j)=>{const p=ls[j]||ls[ls.length-1]||{};const pr=p.r||topReps(e.target.reps)||'';
-   h+=`<div class="set ${st.done?'done':''}"><span class="sn">${j+1}</span>
-   <input inputmode="decimal" data-f="w" data-i="${i}" data-j="${j}" value="${esc(st.w)}" placeholder="${esc(p.w||'kg')}" aria-label="weight kg">
-   <input inputmode="numeric" data-f="r" data-i="${i}" data-j="${j}" value="${esc(st.r)}" placeholder="${esc(pr||'reps')}" aria-label="reps">
+   h+=`<div class="set ${st.done?'done':''}"${g}><span class="sn">${j+1}</span>
+   ${bw?'':`<input inputmode="decimal" data-f="w" data-i="${i}" data-j="${j}" value="${esc(st.w)}" placeholder="${esc(p.w||'kg')}" aria-label="weight kg">`}
+   <input inputmode="numeric" data-f="r" data-i="${i}" data-j="${j}" value="${esc(st.r)}" placeholder="${esc(pr||(hold?'sec':'reps'))}" aria-label="${hold?'seconds':'reps'}">
    <button class="tick" data-a="tick" data-i="${i}" data-j="${j}" aria-label="set done">✓</button></div>`;});}
  if(e.press)h+=`<div class="pain"><span class="grow">Pain (0–10)</span><button class="btn sm" data-a="pain" data-i="${i}" data-d="-1">−</button><span class="v ${e.pain>3?'hi':''}">${e.pain==null?'–':e.pain}</span><button class="btn sm" data-a="pain" data-i="${i}" data-d="1">+</button></div>`;
  const rest=restSecFor(e);
  const nextJ=nextOpenSet(e);
  const allDone=!e.cardio&&e.sets.every(st=>st.done);
  const swOn=!!e._swOn;
- const resting=tInt&&tExIdx===i&&!tAwaitStart;
+ const sideing=tMode==='side'&&tExIdx===i&&!!tInt;
+ const resting=tInt&&tExIdx===i&&!tAwaitStart&&!sideing;
  const ready=tAwaitStart&&tExIdx===i;
- let swCls=swOn?'running':ready?'ready':resting?'resting':'';
+ let swCls=swOn?'running':ready?'ready':sideing?'running':resting?'resting':'';
+ const hold=holdSecs(e.target&&e.target.reps),paired=sidePair(e.target&&e.target.reps)&&hold>0;
  let swMsg='';
  if(e.cardio)swMsg='';
+ else if(sideing)swMsg=tHoldN<tHoldOf?`Side ${tHoldN} of ${tHoldOf} · ${tHoldSec}s, then the other side`:`Side ${tHoldN} of ${tHoldOf} · ${tHoldSec}s`;
  else if(swOn)swMsg=`Set ${(nextJ>=0?nextJ:e.sets.length-1)+1} · working — tick ✓ when done`;
  else if(ready)swMsg='Rest done — start next set';
  else if(resting)swMsg=`Resting ${rest}s · next set when timer hits 0`;
  else if(allDone)swMsg='All sets done';
+ else if(paired&&nextJ===0)swMsg=`Start set runs ${hold}s on one side, then ${hold}s on the other`;
  else if(nextJ===0)swMsg='Tap Start set to begin work timer';
  else swMsg=`Ready for set ${nextJ+1}`;
  if(!e.cardio){
@@ -477,7 +485,7 @@ function insertPlanEx(p,tpl){const pe={name:tpl.name,sets:Math.max(1,parseInt(tp
  p.exercises.splice(idx,0,pe);return idx;}
 
 // ---- rest timer (guided set → rest → next set) ----
-let tEnd=0,tInt=null,tExIdx=null,tAwaitStart=false,audio=null,wakeLock=null;
+let tEnd=0,tInt=null,tExIdx=null,tAwaitStart=false,tMode='rest',tHoldSec=0,tHoldN=0,tHoldOf=0,audio=null,wakeLock=null;
 function beep(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();[0,.25,.5].forEach(d=>{const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=880;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.3,audio.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d+.2);o.start(audio.currentTime+d);o.stop(audio.currentTime+d+.2);});}catch(e){}}
 function restSecFor(e){return e&&e.main?S.settings.restMain:S.settings.rest;}
 function nextOpenSet(e){if(!e||!e.sets)return -1;return e.sets.findIndex(st=>!st.done);}
@@ -487,12 +495,21 @@ function setTimerActs(mode){const acts=document.getElementById('tActs');if(!acts
   else acts.innerHTML=`<button class="btn sm" data-a="tStop">Dismiss</button>`;}
  else{acts.innerHTML=`<button class="btn sm" data-a="tAdj" data-d="-15">−15</button><button class="btn sm" data-a="tAdj" data-d="15">+15</button><button class="btn sm" data-a="tStop">Skip</button>`;}}
 function startTimer(sec,exIdx){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();}catch(e){}
+ tMode='rest';tHoldN=0;tHoldOf=0;
  tExIdx=(exIdx==null||exIdx==='')?null:+exIdx;tAwaitStart=false;tEnd=Date.now()+Math.max(1,sec)*1000;
  const el=document.getElementById('timer'),lab=document.getElementById('tLab');
  el.classList.remove('hidden','fin');if(lab)lab.textContent='Rest';setTimerActs('rest');
  clearInterval(tInt);tInt=setInterval(tick,250);tick();}
+function startHold(sec,sides,exIdx){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();}catch(e){}
+ tMode='side';tHoldSec=Math.max(1,parseInt(sec)||1);tHoldOf=sides>=2?2:1;tHoldN=1;
+ tExIdx=(exIdx==null||exIdx==='')?null:+exIdx;tAwaitStart=false;tEnd=Date.now()+tHoldSec*1000;
+ const el=document.getElementById('timer'),lab=document.getElementById('tLab');
+ el.classList.remove('hidden','fin');if(lab)lab.textContent=tHoldOf===2?'Side 1 of 2':'Hold';setTimerActs('rest');
+ clearInterval(tInt);tInt=setInterval(tick,250);tick();}
 function tick(){const el=document.getElementById('timer'),left=Math.round((tEnd-Date.now())/1000),lab=document.getElementById('tLab');
  if(left<=0){
+  if(tMode==='side'&&tHoldN<tHoldOf){tHoldN++;tEnd=Date.now()+tHoldSec*1000;el.classList.remove('fin');if(lab)lab.textContent='Side '+tHoldN+' of '+tHoldOf;document.getElementById('tt').textContent=Math.floor(tHoldSec/60)+':'+String(tHoldSec%60).padStart(2,'0');if(navigator.vibrate)navigator.vibrate([180,80,180]);beep();if(view==='session')render();return;}
+  if(tMode==='side'){const idx=tExIdx,e=idx!=null&&S.active&&S.active.exercises[idx];beep();if(e){swFreeze(e);startTimer(restSecFor(e),idx);if(view==='session')render();}else{stopTimer();toast('Both sides done');}return;}
   if(!el.classList.contains('fin')){el.classList.add('fin');tAwaitStart=tExIdx!=null;clearInterval(tInt);tInt=null;setTimerActs('done');
    if(lab)lab.textContent='Rest done';
    document.getElementById('tt').textContent=tExIdx!=null?'Start next set':'Rest done!';
@@ -500,8 +517,11 @@ function tick(){const el=document.getElementById('timer'),left=Math.round((tEnd-
    if(tExIdx!=null){if(view==='session')render();}
    else setTimeout(()=>{if(document.getElementById('timer').classList.contains('fin')&&tExIdx==null)stopTimer()},6000);}
   return;}
- if(lab)lab.textContent='Rest';document.getElementById('tt').textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');}
-function stopTimer(){clearInterval(tInt);tInt=null;tAwaitStart=false;tExIdx=null;const el=document.getElementById('timer');el.classList.add('hidden');el.classList.remove('fin');setTimerActs('rest');const lab=document.getElementById('tLab');if(lab)lab.textContent='Rest';}
+ if(tMode==='side'){if(lab)lab.textContent=tHoldOf===2?('Side '+tHoldN+' of '+tHoldOf):'Hold';}
+ else if(lab)lab.textContent='Rest';
+ document.getElementById('tt').textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');}
+function stopTimer(){clearInterval(tInt);tInt=null;tAwaitStart=false;tExIdx=null;tMode='rest';tHoldN=0;tHoldOf=0;const el=document.getElementById('timer');el.classList.add('hidden');el.classList.remove('fin');setTimerActs('rest');const lab=document.getElementById('tLab');if(lab)lab.textContent='Rest';}
+function beginSet(i){const e=S.active&&S.active.exercises[i];if(!e)return;startWork(i);const sec=holdSecs(e.target&&e.target.reps);if(isBodyweight(e)&&sidePair(e.target&&e.target.reps)&&sec>0)startHold(sec,2,i);}
 // ---- exercise work timer (guided; accumulates durationSec) ----
 let clockInt=null;
 function fmtMMSS(sec){sec=Math.max(0,Math.floor(sec||0));return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');}
@@ -515,7 +535,7 @@ function stopClock(){clearInterval(clockInt);clockInt=null;}
 function tickClocks(){if(!S.active){stopClock();return;}
  const se=document.getElementById('sessElapsed');if(se)se.textContent=fmtMMSS(Math.floor((Date.now()-S.active.start)/1000));
  S.active.exercises.forEach((e,i)=>{const el=document.getElementById('sw'+i);if(el){el.textContent=fmtMMSS(swNow(e));const row=document.getElementById('swrow'+i)||el.closest('.sw');
-  if(row){row.classList.toggle('running',!!e._swOn);row.classList.toggle('ready',!!(tAwaitStart&&tExIdx===i));row.classList.toggle('resting',!!(tInt&&tExIdx===i&&!tAwaitStart));}}});}
+  if(row){row.classList.toggle('running',!!e._swOn||(tMode==='side'&&tExIdx===i));row.classList.toggle('ready',!!(tAwaitStart&&tExIdx===i));row.classList.toggle('resting',!!(tInt&&tExIdx===i&&!tAwaitStart&&tMode!=='side'));}}});}
 async function wake(on){try{if(on&&'wakeLock' in navigator&&!wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>wakeLock=null);}else if(!on&&wakeLock){await wakeLock.release();wakeLock=null;}}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(S.active&&view==='session'){wake(true);tickClocks();}if(tInt)tick();}});
 
@@ -633,7 +653,7 @@ const A={
   if(!m||m<=0){toast('Enter minutes');return;}if(kcal!=null&&kcal<0){toast('Calories must be ≥ 0');return;}const t=d===todayKey()?Date.now():keyT(d)+2*3600e3;
   S.cardio.push({id:uid(),type,minutes:m,kcal,date:d,t});save();toast(`✓ ${m} min ${type}${kcal!=null?' · '+kcal+' kcal':''}`);render();},
  tick:t=>{const i=+t.dataset.i,e=S.active.exercises[i],st=e.sets[+t.dataset.j],row=t.closest('.set');
-  if(!st.done){const [wi,ri]=row.querySelectorAll('input');if(wi&&wi.value.trim()!=='')st.w=wi.value.trim();else if(st.w===''&&wi&&wi.placeholder&&wi.placeholder!=='kg')st.w=wi.placeholder;if(ri&&ri.value.trim()!=='')st.r=ri.value.trim();else if(st.r===''&&ri&&ri.placeholder&&ri.placeholder!=='reps')st.r=ri.placeholder;
+  if(!st.done){const wi=row.querySelector('input[data-f="w"]'),ri=row.querySelector('input[data-f="r"]');if(wi&&wi.value.trim()!=='')st.w=wi.value.trim();else if(wi&&st.w===''&&wi.placeholder&&wi.placeholder!=='kg')st.w=wi.placeholder;if(ri&&ri.value.trim()!=='')st.r=ri.value.trim();else if(st.r===''&&ri&&ri.placeholder&&ri.placeholder!=='reps'&&ri.placeholder!=='sec')st.r=ri.placeholder;
    st.done=true;swFreeze(e); // end work for this set
    const more=e.sets.some(x=>!x.done);
    if(more)startTimer(restSecFor(e),i);else{stopTimer();toast('✓ '+e.name+' done');}
@@ -643,10 +663,11 @@ const A={
  addSet:t=>{const e=S.active.exercises[+t.dataset.i],l=e.sets[e.sets.length-1];e.sets.push({w:l?l.w:'',r:'',done:false});save();render();},
  delSet:t=>{const e=S.active.exercises[+t.dataset.i];if(e.sets.length>1){e.sets.pop();save();render();}},
  rest:t=>{const i=t.dataset.i!=null?+t.dataset.i:tExIdx;if(i!=null&&S.active)swFreeze(S.active.exercises[i]);startTimer(+t.dataset.s,i);},
- swStart:t=>{startWork(+t.dataset.i);save();render();},
+ hold:t=>{startHold(+t.dataset.s,+t.dataset.sides||2,null);},
+ swStart:t=>{beginSet(+t.dataset.i);save();render();},
  swPause:t=>{swFreeze(S.active.exercises[+t.dataset.i]);save();render();},
  swReset:t=>{const e=S.active.exercises[+t.dataset.i];e.durationSec=0;e._swOn=false;delete e._swT0;save();render();},
- tStartSet:()=>{const i=tExIdx;stopTimer();if(i==null||!S.active||!S.active.exercises[i])return;startWork(i);save();render();
+ tStartSet:()=>{const i=tExIdx;stopTimer();if(i==null||!S.active||!S.active.exercises[i])return;beginSet(i);save();render();
   const card=document.getElementById('ex'+i);if(card)card.scrollIntoView({behavior:'smooth',block:'nearest'});},
  exNote:t=>{const e=S.active.exercises[+t.dataset.i];e._showNote=!e._showNote;render();const ta=document.querySelector(`textarea[data-i="${t.dataset.i}"]`);if(ta)ta.focus();},
  exSwap:t=>openSwap('session',+t.dataset.i),
@@ -834,7 +855,7 @@ function vMobility(){const tk=todayKey();if(!mobSel||!routineById(mobSel))mobSel
  if(r){const e=mobEntry(r.id,tk,false),d=e?e.d:[],pr=routineProg(r.id,tk);
   h+=`<div class="card" id="mobList"><div class="hrow"><div><h3>${esc(r.name)}</h3><div class="muted">${esc(r.hint||'')}</div></div><div class="stat" style="font-size:20px">${pr.n}/${pr.of}</div></div>`;
   r.items.forEach((it,x)=>{const dn=d.includes(it.name);h+=`<div class="mi ${dn?'done':''}"><button class="tick" data-a="mobTick" data-r="${r.id}" data-x="${x}" aria-label="done">✓</button>
-   <div class="grow"><button class="linkbtn" data-a="demo" data-n="${esc(it.name)}"><b>${esc(it.name)}</b></button> <span class="muted">· ${esc(it.dose)}</span><div class="cue">${esc(it.cue||'')}</div></div>${it.sec?`<button class="btn" data-a="rest" data-s="${it.sec}">⏱ ${it.sec>=60&&it.sec%60===0?it.sec/60+'m':it.sec+'s'}</button>`:''}<button class="btn sm" data-a="mobSwap" data-r="${esc(r.id)}" data-x="${x}">Change</button></div>`;});
+   <div class="grow"><button class="linkbtn" data-a="demo" data-n="${esc(it.name)}"><b>${esc(it.name)}</b></button> <span class="muted">· ${esc(it.dose)}</span><div class="cue">${esc(it.cue||'')}</div></div>${it.sec?`<button class="btn" data-a="${sidePair(it.dose)?'hold':'rest'}" data-s="${it.sec}" data-sides="${sidePair(it.dose)?2:1}">⏱ ${sidePair(it.dose)?(it.sec+'s ×2'):(it.sec>=60&&it.sec%60===0?it.sec/60+'m':it.sec+'s')}</button>`:''}<button class="btn sm" data-a="mobSwap" data-r="${esc(r.id)}" data-x="${x}">Change</button></div>`;});
   h+=`<div class="row"><button class="btn sm" data-a="mobReset" data-r="${r.id}">Reset today</button><button class="btn primary grow" data-a="mobAll" data-r="${r.id}">✓ Mark all done</button></div></div>`;}
  const bp=S.backPain[tk];
  h+=`<h2>Lower back pain today</h2><div class="card"><div class="muted" style="margin-bottom:8px">0 = none · 10 = worst. ${bp!=null?`Logged: <b>${bp}/10</b>`:'Not logged yet today.'}</div>
