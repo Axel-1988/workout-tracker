@@ -9,9 +9,9 @@ const ABS_UPPER=[ex('Dead bug',2,'8 each side',{abs:1}),ex('Cable crunch',2,'12'
 const ABS_LOWER=[ex('Pallof press',2,'10 each side',{abs:1}),ex('Cable crunch',2,'12',{abs:1}),ex('Reverse crunch',2,'10',{abs:1})];
 const ABS_SUNDAY=[ex('Dead bug',2,'8 each side',{abs:1}),ex('Side plank (knees)',2,'20s each side',{abs:1})];
 const DEFAULT_PLAN=[
- {id:'upperA',name:'Upper A',exercises:[ex('Chest-supported row',4,'8-10'),ex('Lat pulldown (neutral grip)',4,'8-10'),ex('Neutral-grip DB press (low incline)',3,'10-12',{press:1}),ex('Cable chest fly',3,'12-15',{press:1}),ex('Face pull',3,'15'),ex('Cable lateral raise',3,'15',{press:1}),ex('Hammer curl',3,'12'),ex('Band external rotation',2,'15'),...ABS_UPPER]},
+ {id:'upperA',name:'Upper A',exercises:[ex('Chest-supported row',4,'8-10'),ex('Lat pulldown (neutral grip)',4,'8-10'),ex('Neutral-grip DB press (low incline)',3,'10-12',{press:1}),ex('Cable chest fly',3,'12-15',{press:1}),ex('Face pull',3,'15'),ex('Cable lateral raise',3,'15',{press:1}),ex('Hammer curl',3,'12'),ex('Band external rotation',2,'15'),ex('DB shrug',3,'10-12'),...ABS_UPPER]},
  {id:'lowerA',name:'Lower A',exercises:[ex('Hack squat',4,'6-8',{main:1}),ex('Romanian deadlift',3,'8'),ex('Leg press',3,'10-12'),ex('Lying leg curl',3,'12'),ex('Standing calf raise',4,'12-15'),...ABS_LOWER]},
- {id:'upperB',name:'Upper B',exercises:[ex('Pull-ups / assisted',4,'AMRAP'),ex('Seated cable row',3,'12'),ex('Machine chest press',3,'12',{press:1}),ex('Pec deck',2,'12-15',{press:1}),ex('DB lateral raise',3,'15',{press:1}),ex('Rear delt fly',3,'15'),ex('Cable curl',3,'12'),ex('Rope pushdown',2,'15',{press:1}),...ABS_UPPER]},
+ {id:'upperB',name:'Upper B',exercises:[ex('Pull-ups / assisted',4,'AMRAP'),ex('Seated cable row',3,'12'),ex('Machine chest press',3,'12',{press:1}),ex('Pec deck',2,'12-15',{press:1}),ex('DB lateral raise',3,'15',{press:1}),ex('Rear delt fly',3,'15'),ex('Cable curl',3,'12'),ex('Rope pushdown',2,'15',{press:1}),ex('Chest-supported shrug',3,'10-12'),...ABS_UPPER]},
  {id:'lowerB',name:'Lower B',exercises:[ex('Trap bar deadlift',3,'5-6',{main:1}),ex('Bulgarian split squat',3,'10 each'),ex('Hip thrust',3,'10-12'),ex('Leg extension',3,'15'),ex('Seated calf raise',3,'15'),...ABS_LOWER]},
  {id:'sunday',name:'Sunday Pull & Conditioning',exercises:[ex('Single-arm DB row',3,'10'),ex('Straight-arm pulldown',3,'12'),ex('Face pull',3,'15'),ex('Hammer curl',3,'12'),ex('Intervals',1,'20 min',{cardio:1}),...ABS_SUNDAY]}
 ];
@@ -32,7 +32,9 @@ const ACCESSORY_B={
  'Cable crunch':ex('Hanging knee raise',2,'12',{abs:1}),
  'Hanging knee raise':ex('Cable crunch',2,'12',{abs:1}),
  'Cable chest fly':ex('Pec deck',3,'12-15',{press:1}),
- 'Pec deck':ex('Cable chest fly',2,'12-15',{press:1})
+ 'Pec deck':ex('Cable chest fly',2,'12-15',{press:1}),
+ 'DB shrug':ex('Cable shrug',3,'10-12'),
+ 'Chest-supported shrug':ex('DB shrug',3,'10-12')
 };
 
 function mi(name,dose,sec,cue){return {name,dose,sec,cue};}
@@ -101,6 +103,7 @@ const SWAP_GROUPS=[
  {id:'back',label:'Back',names:['Chest-supported row','Lat pulldown (neutral grip)','Pull-ups / assisted','Seated cable row','Single-arm DB row','Straight-arm pulldown','Machine row','Chest-supported DB row','Wide-grip lat pulldown','Helms row','Inverted row','Dumbbell pullover']},
  {id:'chest',label:'Chest / press',names:['Neutral-grip DB press (low incline)','Machine chest press','Incline DB press','Flat DB press','Smith machine press','Cable chest fly','Pec deck','Push-up']},
  {id:'shoulders',label:'Shoulders',names:['Face pull','Rear delt fly','Cable lateral raise','Machine lateral raise','DB lateral raise','Reverse pec deck','Band pull-aparts','Prone Y-raise (no weight)']},
+ {id:'traps',label:'Traps',names:['DB shrug','Cable shrug','Chest-supported shrug','Farmer carry']},
  {id:'arms',label:'Arms',names:['Hammer curl','Cable curl','Rope pushdown','DB curl','Incline DB curl','EZ-bar curl','Overhead cable extension','Bayesian curl']},
  {id:'quads',label:'Quads',names:['Hack squat','Leg press','Bulgarian split squat','Leg extension','Goblet squat','Smith squat','Walking lunge','Step-up','Belt squat']},
  {id:'posterior',label:'Hamstrings / glutes',names:['Romanian deadlift','Trap bar deadlift','Hip thrust','Lying leg curl','Seated leg curl','Single-leg RDL','Good morning','Back extension','Cable pull-through','Swiss ball leg curl']},
@@ -130,7 +133,7 @@ const EXTRA_TPL=[
  ex('StairMaster',1,'20 min',{cardio:1}),
  ex('Bike',1,'20 min',{cardio:1})
 ];
-const DAY_GROUPS={upperA:['back','chest','shoulders','arms','abs'],upperB:['back','chest','shoulders','arms','abs'],lowerA:['quads','posterior','calves','abs'],lowerB:['quads','posterior','calves','abs'],sunday:['back','shoulders','arms','cardio','abs']};
+const DAY_GROUPS={upperA:['back','chest','shoulders','traps','arms','abs'],upperB:['back','chest','shoulders','traps','arms','abs'],lowerA:['quads','posterior','calves','abs'],lowerB:['quads','posterior','calves','abs'],sunday:['back','shoulders','traps','arms','cardio','abs']};
 function groupsForPlan(planId){const ids=DAY_GROUPS[planId]||SWAP_GROUPS.map(g=>g.id);return ids.map(id=>SWAP_GROUPS.find(g=>g.id===id)).filter(Boolean);}
 function catalogNames(){const set=new Set();SWAP_GROUPS.forEach(g=>g.names.forEach(n=>set.add(n)));allExerciseNames().forEach(n=>set.add(n));return [...set].sort((a,b)=>a.localeCompare(b));}
 const nameKey=n=>String(n||'').trim().toLowerCase();
@@ -190,6 +193,9 @@ function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.
   let i=p.exercises.findIndex(e=>e.name===after);if(i<0){const a=p.exercises.findIndex(e=>e.abs);i=a>=0?a-1:-1;}
   p.exercises.splice(i>=0?i+1:p.exercises.length,0,item);});s.settings.addedChestFly=1;s._deduped=1;s._chestAdd=1;}
  if(!s.settings.droppedFrontDelt){(s.plan||[]).forEach(p=>{(p.exercises||[]).forEach(e=>{if(!e||!/landmine press|plate front raise|front raise/i.test(e.name||''))return;e.name='DB lateral raise';e.sets=3;e.reps='15';e.press=1;e.main=false;e.cardio=false;});});s.settings.droppedFrontDelt=1;s._deduped=1;s._frontDelt=1;}
+ if(!s.settings.addedTraps){(s.plan||[]).forEach(p=>{if(!p||!Array.isArray(p.exercises)||p.exercises.some(e=>/shrug|farmer carry/i.test(e.name||'')))return;
+  const item=p.id==='upperA'?ex('DB shrug',3,'10-12'):p.id==='upperB'?ex('Chest-supported shrug',3,'10-12'):null;if(!item)return;
+  const a=p.exercises.findIndex(e=>e.abs);p.exercises.splice(a>=0?a:p.exercises.length,0,item);});s.settings.addedTraps=1;s._deduped=1;s._trapsAdd=1;}
  ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}});if(!s.block||typeof s.block!=='object')s.block={start:null,letter:'A',number:1};s.block.letter=(s.block.letter==='B'?'B':'A');s.block.number=Math.max(1,parseInt(s.block.number)||1);if(s.block.start&&!/^\d{4}-\d{2}-\d{2}$/.test(s.block.start))s.block.start=null;s.meals=s.meals&&typeof s.meals==='object'?s.meals:null;return s;}
 function load(){try{const r=localStorage.getItem(KEY);if(r)return normalize(JSON.parse(r));}catch(e){console.error(e)}return defaults();}
 let S=load();
@@ -204,7 +210,13 @@ if(S._chestAdd&&S.active&&Array.isArray(S.active.exercises)&&!S.active.exercises
 if(S._frontDelt&&S.active&&Array.isArray(S.active.exercises)){
  S.active.exercises.forEach((e,i)=>{if(!e||!/landmine press|plate front raise|front raise/i.test(e.name||''))return;if((e.sets||[]).some(st=>st&&st.done))return;S.active.exercises[i]=mkEx(ex('DB lateral raise',3,'15',{press:1}));});
 }
-delete S._chestAdd;delete S._frontDelt;
+if(S._trapsAdd&&S.active&&Array.isArray(S.active.exercises)&&(S.active.planId==='upperA'||S.active.planId==='upperB')&&!S.active.exercises.some(e=>/shrug|farmer carry/i.test(e.name||''))){
+ const id=S.active.planId,letter=S.active.blockLetter==='B'?'B':'A';
+ const name=id==='upperA'?(letter==='B'?'Cable shrug':'DB shrug'):(letter==='B'?'DB shrug':'Chest-supported shrug');
+ const e=mkEx(ex(name,3,'10-12')),a=S.active.exercises.findIndex(x=>x.abs);
+ S.active.exercises.splice(a>=0?a:S.active.exercises.length,0,e);
+}
+delete S._chestAdd;delete S._frontDelt;delete S._trapsAdd;
 if(S._absMerged||S._deduped){delete S._absMerged;delete S._deduped;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 writeScanVault(S.scans);
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));writeScanVault(S.scans);}catch(e){toast('⚠ Could not save: '+e.message)}}
@@ -316,10 +328,10 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6f</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6g</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
- <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, hammer curl, standing calf, cable crunch':'rear delt, machine lateral, cable curl, seated calf, hanging knee raise'}</div>
+ <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, DB shrug, hammer curl, standing calf':'rear delt, machine lateral, cable shrug, cable curl, seated calf'}</div>
  ${bi.week>=4?`<div class="row"><button class="btn sm primary" data-a="blockNext">Start next block now</button></div>`:''}</div>`;
  const pr=routineProg('posture',todayKey()),st=streak('posture');
  h+=`<button class="btn sessbtn" data-a="mobGo" data-r="${suggestedRoutine()}"><span>🧘 ${esc(routineById(suggestedRoutine())?routineById(suggestedRoutine()).name:'Mobility')}<br><small>Suggested today · posture ${pr.n}/${pr.of} · 🔥 ${st}-day streak</small></span><small>›</small></button>`;
@@ -348,7 +360,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6f</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6g</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -995,6 +1007,9 @@ const DEMOS=[
  {n:['Lat pulldown (neutral grip)','Lat pulldown','Neutral grip pulldown'],img:'V-Bar_Pulldown',approx:'Close/neutral-grip (V-bar) pulldown shown',s:'Thighs under pads, neutral (palms-facing) handle, slight lean back, chest up.',m:'Drive elbows down to your sides, bring handle to upper chest, control it back up to near full stretch.',x:'Pulling behind the neck; leaning way back; letting shoulders shrug up at the top.',w:'Stay in a pain-free top position — no need to fully hang at the top if the left shoulder pinches. Never pull behind the neck.'},
  {n:['Neutral-grip DB press (low incline)','Neutral-grip DB press low incline','Incline DB press','Neutral grip DB press'],img:'Hammer_Grip_Incline_DB_Bench_Press',approx:'Hammer-grip incline DB press shown — use a LOW incline (15–30°)',s:'Bench at a low incline, dumbbells at chest with palms facing each other, shoulder blades back & down.',m:'Press up and slightly in, elbows ~30–45° from body, lower slowly until a comfortable stretch.',x:'Elbows flared to 90°; bouncing out of the bottom; going too deep.',w:'PRESS: rate pain 0–10. Left shoulder: shorten the range (stop ~2–3 cm above chest) and keep elbows tucked. Pain >3 = keep weight same or lighter.'},
  {n:['Face pull','Face pulls'],img:'Face_Pull',s:'Rope on a cable at upper-chest/face height, overhand or thumbs-up grip, step back, stand tall.',m:'Pull the rope toward your eyes, hands apart, elbows high-ish and back, rotate hands back; pause.',x:'Going too heavy and leaning back; shrugging; elbows dropping low.',w:'Great for posture and shoulder health. Keep it light and smooth; if the left shoulder complains, lower the pulley to chest height.'},
+ {n:['DB shrug','Dumbbell shrug','Shrug'],s:'Stand tall, dumbbells at your sides, arms long, chin tucked slightly.',m:'Shrug the shoulders straight up toward the ears, pause, lower slowly until the shoulders are fully down.',x:'Rolling the shoulders in circles; bouncing; bending the elbows into a curl; craning the neck.',w:'Upper traps. Do not roll the shoulders. Stop if the neck or left shoulder goes over 3/10. Keep the weights at your sides so this stays off the lower back.'},
+ {n:['Cable shrug'],s:'Cable set low, straight bar or rope in both hands, stand close, arms long.',m:'Shrug straight up, pause, lower until the shoulders drop and the cable stays taut.',x:'Leaning back; turning it into an upright row; yanking the stack.',w:'Same upper-trap job as the dumbbell shrug. Stop if the neck or left shoulder pinches.'},
+ {n:['Chest-supported shrug','Kelso shrug'],s:'Chest on an incline bench, dumbbells hanging straight down, neck neutral.',m:'Without bending the elbows, shrug the shoulder blades up and slightly together, pause, lower to a full stretch.',x:'Turning it into a row; lifting the chest off the pad; shrugging the neck.',w:'Hits the traps without loading the lower back. Keep the chest glued to the pad.'},
  {n:['Machine lateral raise','Seated lateral raise','Seated side lateral raise'],img:'Seated_Side_Lateral_Raise',approx:'Seated/machine-style lateral raise shown — stop at shoulder height, pain-free',s:'Seat upright, pads or DBs at sides, slight elbow bend, chest up.',m:'Raise arms out to about shoulder height (thumbs slightly up / scaption), lower slowly.',x:'Shrugging; swinging; going above the ears.',w:'PRESS: left shoulder bursitis — stop at or below shoulder height; skip if pain >3.'},
  {n:['Cable lateral raise','Lateral raise'],img:'Cable_Seated_Lateral_Raise',approx:'Cable lateral raise (two-handle version) shown — one arm at a time is fine',s:'Low pulley, handle in the opposite hand, stand side-on, slight forward lean, soft elbow.',m:'Raise arm out to the side to about shoulder height (thumb slightly up), lower slowly.',x:'Swinging; shrugging; raising above shoulder height.',w:'PRESS-marked for pain tracking. Left shoulder: stop at or below shoulder height, "scaption" (arm ~30° forward) is usually friendlier. Skip if painful.'},
  {n:['Hammer curl','Hammer curls'],img:'Hammer_Curls',s:'Stand tall, dumbbells at sides, palms facing in, elbows by ribs.',m:'Curl up without moving the elbows, squeeze, lower slowly to full extension.',x:'Swinging the torso; elbows drifting forward; dropping the weight.',w:'Right elbow bursitis: don\'t rest or lean the elbow on anything, avoid slamming into lockout, keep reps smooth.'},
