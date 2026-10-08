@@ -321,7 +321,7 @@ function go(v,arg){view=v;viewArg=arg;render();window.scrollTo(0,0);}
 function render(){const V={home:vHome,session:vSession,history:vHistory,detail:vDetail,body:vBody,settings:vSettings,mobility:vMobility,photos:vPhotos,meals:vMeals}[view]||vHome;
  document.getElementById('app').innerHTML=V();renderNav();
  const sug=document.getElementById('sugBox');if(sug)sug.addEventListener('toggle',()=>{sugOpen=sug.open;});
- const yf=document.getElementById('yfBox');if(yf)yf.addEventListener('toggle',()=>{yfOpen=yf.open;});const yl=document.getElementById('yfLibBox');if(yl)yl.addEventListener('toggle',()=>{yfLibOpen=yl.open;});if(view==='photos')hydrateFull();if(view==='session'&&S.active){ensureClock();tickClocks();}else stopClock();}
+ const yf=document.getElementById('yfBox');if(yf)yf.addEventListener('toggle',()=>{yfOpen=yf.open;});if(view==='photos')hydrateFull();if(view==='session'&&S.active){ensureClock();tickClocks();}else stopClock();}
 function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘','Mobility'],['photos','📸','Photos'],['body','⚖️','Body'],['meals','🍽️','Meals'],['history','📈','History']];
  const cur={home:'train',session:'train',settings:'train',detail:'history'}[view]||view;
  document.getElementById('nav').innerHTML=tabs.map(([v,i,l])=>`<button data-a="nav" data-v="${v}" class="${cur===v?'on':''} ${v==='train'&&S.active&&view!=='session'?'live':''}"><span>${i}</span>${v==='train'&&S.active?'● Train':l}</button>`).join('');}
@@ -329,7 +329,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6j</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6k</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, DB shrug, hammer curl, standing calf':'rear delt, machine lateral, cable shrug, cable curl, seated calf'}</div>
@@ -361,7 +361,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6j</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6k</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -404,16 +404,18 @@ function exCard(e,i){const last=lastFor(e.name,S.active.id),bw=isBodyweight(e);l
  const allDone=!e.cardio&&e.sets.every(st=>st.done);
  const swOn=!!e._swOn;
  const sideing=tMode==='side'&&tExIdx===i&&!!tInt;
- const resting=tInt&&tExIdx===i&&!tAwaitStart&&!sideing;
+ const going=tMode==='go'&&tExIdx===i&&!!tInt;
+ const resting=tInt&&tExIdx===i&&!tAwaitStart&&!sideing&&!going;
  const ready=tAwaitStart&&tExIdx===i;
- let swCls=swOn?'running':ready?'ready':sideing?'running':resting?'resting':'';
+ let swCls=swOn?'running':ready?'ready':sideing?'running':going?'ready':resting?'resting':'';
  const hold=holdSecs(e.target&&e.target.reps),paired=sidePair(e.target&&e.target.reps)&&hold>0;
  let swMsg='';
  if(e.cardio)swMsg='';
  else if(sideing)swMsg=tHoldN<tHoldOf?`Side ${tHoldN} of ${tHoldOf} · ${tHoldSec}s, then the other side`:`Side ${tHoldN} of ${tHoldOf} · ${tHoldSec}s`;
+ else if(going)swMsg='Rest done — next set starts in a few seconds';
  else if(swOn)swMsg=`Set ${(nextJ>=0?nextJ:e.sets.length-1)+1} · working — tick ✓ when done`;
  else if(ready)swMsg='Rest done — start next set';
- else if(resting)swMsg=`Resting ${rest}s · next set when timer hits 0`;
+ else if(resting)swMsg=`Resting ${rest}s · next set starts 5s after the beep`;
  else if(allDone)swMsg='All sets done';
  else if(paired&&nextJ===0)swMsg=`Start set runs ${hold}s on one side, then ${hold}s on the other`;
  else if(nextJ===0)swMsg='Tap Start set to begin work timer';
@@ -487,9 +489,11 @@ function insertPlanEx(p,tpl){const pe={name:tpl.name,sets:Math.max(1,parseInt(tp
 // ---- rest timer (guided set → rest → next set) ----
 let tEnd=0,tInt=null,tExIdx=null,tAwaitStart=false,tMode='rest',tHoldSec=0,tHoldN=0,tHoldOf=0,audio=null,wakeLock=null;
 function beep(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();[0,.25,.5].forEach(d=>{const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=880;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.3,audio.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d+.2);o.start(audio.currentTime+d);o.stop(audio.currentTime+d+.2);});}catch(e){}}
+function toneStart(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();[[0,523,.16],[.2,784,.18],[.42,1046,.32]].forEach(([d,f,len])=>{const o=audio.createOscillator(),g=audio.createGain();o.type='triangle';o.frequency.value=f;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.4,audio.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d+len);o.start(audio.currentTime+d);o.stop(audio.currentTime+d+len+.02);});}catch(e){}}
 function restSecFor(e){return e&&e.main?S.settings.restMain:S.settings.rest;}
 function nextOpenSet(e){if(!e||!e.sets)return -1;return e.sets.findIndex(st=>!st.done);}
 function setTimerActs(mode){const acts=document.getElementById('tActs');if(!acts)return;
+ if(mode==='go'){acts.innerHTML=`<button class="btn sm" data-a="tStop">Cancel</button>`;return;}
  if(mode==='done'){
   if(tExIdx!=null)acts.innerHTML=`<button class="btn sm primary" data-a="tStartSet">Start set</button><button class="btn sm" data-a="tStop">Dismiss</button>`;
   else acts.innerHTML=`<button class="btn sm" data-a="tStop">Dismiss</button>`;}
@@ -510,14 +514,16 @@ function tick(){const el=document.getElementById('timer'),left=Math.round((tEnd-
  if(left<=0){
   if(tMode==='side'&&tHoldN<tHoldOf){tHoldN++;tEnd=Date.now()+tHoldSec*1000;el.classList.remove('fin');if(lab)lab.textContent='Side '+tHoldN+' of '+tHoldOf;document.getElementById('tt').textContent=Math.floor(tHoldSec/60)+':'+String(tHoldSec%60).padStart(2,'0');if(navigator.vibrate)navigator.vibrate([180,80,180]);beep();if(view==='session')render();return;}
   if(tMode==='side'){const idx=tExIdx,e=idx!=null&&S.active&&S.active.exercises[idx];beep();if(e){swFreeze(e);startTimer(restSecFor(e),idx);if(view==='session')render();}else{stopTimer();toast('Both sides done');}return;}
-  if(!el.classList.contains('fin')){el.classList.add('fin');tAwaitStart=tExIdx!=null;clearInterval(tInt);tInt=null;setTimerActs('done');
+  if(tMode==='go'){const idx=tExIdx;clearInterval(tInt);tInt=null;tAwaitStart=false;tExIdx=null;tMode='rest';el.classList.add('hidden');el.classList.remove('fin');toneStart();if(navigator.vibrate)navigator.vibrate(280);if(idx!=null&&S.active&&S.active.exercises[idx]){beginSet(idx);save();if(view==='session')render();}return;}
+  if(tMode==='rest'&&tExIdx!=null){beep();if(navigator.vibrate)navigator.vibrate([400,150,400,150,400]);tMode='go';tAwaitStart=false;tEnd=Date.now()+5000;el.classList.add('fin');if(lab)lab.textContent='Next set';document.getElementById('tt').textContent='0:05';setTimerActs('go');if(view==='session')render();return;}
+  if(!el.classList.contains('fin')){el.classList.add('fin');tAwaitStart=false;clearInterval(tInt);tInt=null;setTimerActs('done');
    if(lab)lab.textContent='Rest done';
-   document.getElementById('tt').textContent=tExIdx!=null?'Start next set':'Rest done!';
+   document.getElementById('tt').textContent='Rest done!';
    if(navigator.vibrate)navigator.vibrate([400,150,400,150,400]);beep();
-   if(tExIdx!=null){if(view==='session')render();}
-   else setTimeout(()=>{if(document.getElementById('timer').classList.contains('fin')&&tExIdx==null)stopTimer()},6000);}
+   setTimeout(()=>{if(document.getElementById('timer').classList.contains('fin')&&tExIdx==null&&tMode!=='go')stopTimer()},6000);}
   return;}
- if(tMode==='side'){if(lab)lab.textContent=tHoldOf===2?('Side '+tHoldN+' of '+tHoldOf):'Hold';}
+ if(tMode==='go'){if(lab)lab.textContent='Next set';}
+ else if(tMode==='side'){if(lab)lab.textContent=tHoldOf===2?('Side '+tHoldN+' of '+tHoldOf):'Hold';}
  else if(lab)lab.textContent='Rest';
  document.getElementById('tt').textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');}
 function stopTimer(){clearInterval(tInt);tInt=null;tAwaitStart=false;tExIdx=null;tMode='rest';tHoldN=0;tHoldOf=0;const el=document.getElementById('timer');el.classList.add('hidden');el.classList.remove('fin');setTimerActs('rest');const lab=document.getElementById('tLab');if(lab)lab.textContent='Rest';}
@@ -535,7 +541,7 @@ function stopClock(){clearInterval(clockInt);clockInt=null;}
 function tickClocks(){if(!S.active){stopClock();return;}
  const se=document.getElementById('sessElapsed');if(se)se.textContent=fmtMMSS(Math.floor((Date.now()-S.active.start)/1000));
  S.active.exercises.forEach((e,i)=>{const el=document.getElementById('sw'+i);if(el){el.textContent=fmtMMSS(swNow(e));const row=document.getElementById('swrow'+i)||el.closest('.sw');
-  if(row){row.classList.toggle('running',!!e._swOn||(tMode==='side'&&tExIdx===i));row.classList.toggle('ready',!!(tAwaitStart&&tExIdx===i));row.classList.toggle('resting',!!(tInt&&tExIdx===i&&!tAwaitStart&&tMode!=='side'));}}});}
+  if(row){row.classList.toggle('running',!!e._swOn||(tMode==='side'&&tExIdx===i));row.classList.toggle('ready',!!((tAwaitStart||tMode==='go')&&tExIdx===i));row.classList.toggle('resting',!!(tInt&&tExIdx===i&&!tAwaitStart&&tMode!=='side'&&tMode!=='go'));}}});}
 async function wake(on){try{if(on&&'wakeLock' in navigator&&!wakeLock){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>wakeLock=null);}else if(!on&&wakeLock){await wakeLock.release();wakeLock=null;}}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(S.active&&view==='session'){wake(true);tickClocks();}if(tInt)tick();}});
 
@@ -763,7 +769,7 @@ const A={
  scanDel:async t=>{if(!confirm('Delete this Evolt scan (and its report image)?'))return;S.scans=S.scans.filter(x=>x.id!==t.dataset.id);save();try{await idbDelFull('scan_'+t.dataset.id);}catch(e){}closeModal();toast('Scan deleted');render();},
  demo:t=>demoModal(t.dataset.n),
  demoPause:t=>t.classList.toggle('paused'),
- tAdj:t=>{if(tAwaitStart)return;tEnd=Math.max(Date.now()+1000,tEnd+ +t.dataset.d*1000);document.getElementById('timer').classList.remove('fin');tick();},
+ tAdj:t=>{if(tAwaitStart||tMode==='go')return;tEnd=Math.max(Date.now()+1000,tEnd+ +t.dataset.d*1000);document.getElementById('timer').classList.remove('fin');tick();},
  tStop:()=>{stopTimer();if(view==='session')render();},
  mealDay:t=>{mealDay=t.dataset.d;if(/^\d{4}-\d{2}-\d{2}$/.test(mealDay||'')&&mealMonth&&mealDay.slice(0,7)!==mealMonth)mealMonth=mealDay.slice(0,7);render();},
  mealMonth:t=>{const cur=mealMonth||mealDayKey().slice(0,7);const [y,m]=cur.split('-').map(Number);const d=new Date(Date.UTC(y,m-1+(+t.dataset.d||0),1));mealMonth=d.toISOString().slice(0,7);render();},
@@ -802,11 +808,7 @@ const A={
   closeModal();
   addFoodToLog({name:f.short||f.label||f.name,kcal:f.kcal,protein:f.protein,carbs:f.carbs,fat:f.fat,barcode:f.barcode||id,source:'favourite'},
    '✓ '+(f.short||f.label||'Favourite')+' · 1 serve');},
- favInfo:t=>favInfoModal(t.dataset.id),
- yfLibAdd:t=>{ensureMeals();const f=S.meals.yfLib[t.dataset.k];if(!f){toast('Meal missing');return;}
-  closeModal();
-  addFoodToLog({name:f.name+' (Youfoodz)',kcal:f.kcal,protein:f.protein,carbs:f.carbs,fat:f.fat,source:'youfoodz'},'✓ '+f.name);},
- yfLibInfo:t=>yfLibInfoModal(t.dataset.k)
+ favInfo:t=>favInfoModal(t.dataset.id)
 };
 function renderKeepOpen(){const open=[...document.querySelectorAll('details')].map(d=>d.open),y=scrollY;render();document.querySelectorAll('details').forEach((d,i)=>d.open=!!open[i]);scrollTo(0,y);}
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t)return;if(t.type==='checkbox'||t.type==='radio')return;const f=A[t.dataset.a];if(f){e.preventDefault();f(t,e);}});
@@ -1212,8 +1214,7 @@ function evoltKcalOf(sc){return kcalForGoal((S.meals&&S.meals.targets&&S.meals.t
  * Home plan days are flexible suggestions only.
  */
 const YF_BASE='https://www.youfoodz.com/my-deliveries/2026-W40';
-/* W40 — delivered Wed 30 Sep 2026. Kept so phones still on W40 move their ticks into the log when W41 takes over. */
-const YF_W40_ITEMS=[
+const YF_ITEMS=[
  {id:'yf-butter',name:'Butter Chicken — with Naan & Brown Rice',kcal:871,protein:40.9,carbs:90.7,fat:36.4,
   allergens:'milk, gluten, wheat',
   ingredients:'brown rice (32%), coconut cream (22%), chicken (21%), naan bread (8%), water, sweet chilli sauce, marinade, garlic, milk powder, tomato paste, vegetable booster, curry powder, sweet paprika, modified starch, butter, vinegar powder, cumin, coriander, vinegar/cultured sugar',
@@ -1252,50 +1253,8 @@ const YF_W40_ITEMS=[
   flag:'Contains pork (ham)',
   url:YF_BASE+'?recipeId=6a0ff25bdea7c5717bde6733&week=2026-W40'}
 ];
-/* W41 — delivered Wed 7 Oct 2026 (synced from Youfoodz My Deliveries on Mon 5 Oct). */
-const YF_W41_URL='https://www.youfoodz.com/my-deliveries/2026-W41';
-const YF_W41_ITEMS=[
- {id:'w41-alfredo',name:'Creamy Chicken Alfredo',kcal:626,protein:40.7,carbs:59.8,fat:23.6,
-  ingredients:'cheese tortellini, chicken, cream, Parmesan, mushrooms',
-  note:'Creamy tortellini with chicken and mushrooms.',url:YF_W41_URL},
- {id:'w41-portuguese',name:'Portuguese Chicken & Rice — with Paprika & Turmeric Spice',kcal:718,protein:44.9,carbs:86.5,fat:19.9,
-  allergens:'milk, sulphites',
-  ingredients:'basmati rice, chicken, thickened cream, corn, tomato sauce, sweet chilli, sriracha, smoked paprika, garlic, turmeric',
-  note:'Paprika & turmeric spiced chicken with rice.',flag:'Contains tomato sauce',url:YF_W41_URL},
- {id:'w41-carbonara',name:'Chicken Carbonara — with Ham & Mushrooms',kcal:542,protein:41,carbs:54.4,fat:16.2,
-  allergens:'milk, gluten, wheat, egg',
-  ingredients:'fettuccine, chicken, ham, mushrooms, cream, Parmesan',
-  note:'Contains pork (ham).',flag:'Contains pork (ham)',url:YF_W41_URL},
- {id:'w41-sliced-1',name:'Sliced Chicken Breast (Double Up) — pack 1 of 2',kcal:224,protein:42.9,carbs:3.2,fat:3.7,
-  ingredients:'chicken breast, spices (200g serve)',
-  note:'Plain sliced chicken — great add-on to a home meal or a high-protein snack.',url:YF_W41_URL},
- {id:'w41-sliced-2',name:'Sliced Chicken Breast (Double Up) — pack 2 of 2',kcal:224,protein:42.9,carbs:3.2,fat:3.7,
-  ingredients:'chicken breast, spices (200g serve)',
-  note:'Plain sliced chicken — great add-on to a home meal or a high-protein snack.',url:YF_W41_URL},
- {id:'w41-penne',name:'Chicken & Spinach Penne',kcal:515,protein:41.5,carbs:47.2,fat:16.8,
-  ingredients:'chicken, penne, cream, Parmesan, spinach',
-  note:'Creamy chicken and spinach pasta.',url:YF_W41_URL},
- {id:'w41-mushroom',name:'Creamy Mushroom Chicken',kcal:295,protein:21.1,carbs:28.3,fat:8.9,
-  ingredients:'chicken, sweet potato, broccoli, peas, mushrooms',
-  note:'Lighter meal (only ~21g protein) — pair with a shake or Greek yoghurt. Sweet potato, not mash.',url:YF_W41_URL}
-];
-/* Weekly Youfoodz boxes, oldest → newest. The Monday sync APPENDS the next box here (never edit an old week's id).
- * The app switches to a box automatically on its delivery date (Sydney time): the previous box's ticked meals move
- * into that day's log (macros kept) and its uneaten, undamaged meals carry over once as "left from Wxx" leftovers.
- * A future box (date after today) stays hidden until delivery day, so it is safe to add it early. */
-const YF_DELIVERIES=[
- {week:'2026-W40',date:'2026-09-30',area:'Cecil Park 2178',status:'Delivered',items:YF_W40_ITEMS},
- {week:'2026-W41',date:'2026-10-07',area:'Cecil Park 2178',status:'Delivered',items:YF_W41_ITEMS}
-];
-/* Shown only before `until`. Update with the Monday sync. */
-const YF_NEXT={until:'2026-10-14',text:'Next box Wed 14 Oct (editable until Thu 8 Oct).'};
-function yfSeedDelivery(today){const t=today||todayKey();let cur=YF_DELIVERIES[0];YF_DELIVERIES.forEach(d=>{if(d.date<=t&&String(d.week)>=String(cur.week))cur=d;});return cur;}
-function yfNextNote(today){const t=today||todayKey(),up=YF_DELIVERIES.find(d=>d.date>t);
- if(up)return 'Next box '+fmtKeyDate(up.date)+' ('+up.week+') — the list switches to it automatically that day.';
- return t<YF_NEXT.until?YF_NEXT.text:'';}
-/* Home-suggestion plan weeks that exist in defaultMeals (Mondays). The latest one that has started is current. */
-const PLAN_WEEKS=['2026-09-28','2026-10-05'];
-function planWeekFor(today){const t=today||todayKey();let w=PLAN_WEEKS[0];PLAN_WEEKS.forEach(k=>{if(k<=t)w=k;});return w;}
+/* Upcoming W41 (Wed 7 Oct) — not primary UI; Monday sync / next delivery will replace. See MEAL-PLAN-W41.md */
+const YF_W41_NOTE='Next delivery Wed 7 Oct 2026 (W41) — app will switch on sync; data kept in MEAL-PLAN-W41.md';
 
 function mkPlanItem(id,name,slot,kcal,protein,carbs,source,extra){
  const o={id,name,slot,kcal,protein,carbs:carbs==null?null:carbs,source:source||'home',eaten:false};
@@ -1470,28 +1429,14 @@ function defaultMeals(){
   mkPlanItem('m04-sw','Protein pudding','snack',160,25,8,'home',Object.assign({fat:3},R('Protein pudding','','milk',''))),
   mkPlanItem('m04-tr','Treat allowance (~180 kcal)','treat',180,1,20,'home',Object.assign({fat:8},R('~180 kcal','Optional','','')))
  ]};
- // W41 plan week Mon 5 – Sun 11 Oct: same home suggestions shifted a week (fresh ids), new notes. Youfoodz stay a separate checklist.
- const W41_NOTES={
-  '2026-10-05':'Work 12–9 · late dinner. W41 Youfoodz arrive Wed — use up any W40 leftovers first.',
-  '2026-10-06':'Work 8–6. Pack a leftover W40 Youfoodz for work if you still have one.',
-  '2026-10-07':'OFF · W41 Youfoodz delivery today (Cecil Park). Tick them on the checklist when you eat them.',
-  '2026-10-08':'Work 12–9. Easy post-9pm heat-up: tick a Youfoodz (Alfredo, Penne, Carbonara).',
-  '2026-10-09':'Work 8–6. Take a Youfoodz to work — Sliced Chicken packs make a quick protein top-up.',
-  '2026-10-10':'OFF · training day · higher carbs around training.',
-  '2026-10-11':'OFF · finish remaining Youfoodz before next Wed delivery.'
- };
- Object.keys(W41_NOTES).forEach(k=>{
-  const src=days[keyAdd(k,-7)];if(!src)return;
-  days[k]={notes:W41_NOTES[k],items:src.items.map(it=>Object.assign(clone(it),{id:'w41-'+it.id,eaten:false}))};
- });
  const lib={};const favIds=[];
  MEAL_FAVOURITES.forEach(f=>{lib[f.id]=favToLibraryEntry(f);favIds.push(f.id);});
  return {
-  delivery:(()=>{const s=yfSeedDelivery();return {
-   week:s.week,date:s.date,area:s.area,status:s.status,source:'seed',
-   items:s.items.map(x=>Object.assign({eaten:false},clone(x)))
-  };})(),
-  planWeekStart:planWeekFor(),
+  delivery:{
+   week:'2026-W40',date:'2026-09-30',area:'Cecil Park 2178',status:'Delivered',source:'seed',
+   items:YF_ITEMS.map(x=>Object.assign({eaten:false},x))
+  },
+  planWeekStart:'2026-09-28',
   days,
   targets:Object.assign({},MEAL_TARGETS),
   log:{},
@@ -1502,51 +1447,52 @@ function defaultMeals(){
 function ensureMeals(){
  if(!S.meals||typeof S.meals!=='object'){S.meals=defaultMeals();return S.meals;}
  const d=defaultMeals();
- let switched=false;
- // Youfoodz box: the seed (latest box whose delivery date has arrived) is the source of truth.
- // Older stored box → archive its ticks into the log, carry uneaten meals as leftovers, adopt the new box.
- // Newer stored box (manual load) → keep it; never roll a phone back to an older week.
- const sd=d.delivery,cur=S.meals.delivery;
- if(!cur||!Array.isArray(cur.items)||!cur.week){
-  S.meals.delivery=clone(sd);switched=true;
- }else if(cur.week===sd.week){
-  const byId={};(cur.items||[]).forEach(i=>{if(i&&i.id)byId[i.id]=i;});
-  const keep=(cur.items||[]).filter(i=>i&&i.leftover);
-  S.meals.delivery=Object.assign({},sd,cur,{
-   week:sd.week,date:sd.date,area:sd.area||cur.area,
-   status:sd.status||cur.status,source:cur.source||'seed'
+ // Weekly refresh / W41→W40 correction: seed is source of truth unless manual future override
+ if(!S.meals.delivery||!Array.isArray(S.meals.delivery.items)||!S.meals.delivery.week){
+  S.meals.delivery=clone(d.delivery);
+ }else if(S.meals.delivery.week===d.delivery.week){
+  const byId={};(S.meals.delivery.items||[]).forEach(i=>{if(i&&i.id)byId[i.id]=i;});
+  S.meals.delivery=Object.assign({},d.delivery,S.meals.delivery,{
+   week:d.delivery.week,date:d.delivery.date,area:d.delivery.area||S.meals.delivery.area,
+   status:d.delivery.status||S.meals.delivery.status,source:S.meals.delivery.source||'seed'
   });
-  S.meals.delivery.items=sd.items.map(def=>{
+  S.meals.delivery.items=d.delivery.items.map(def=>{
    const prev=byId[def.id];
    if(!prev)return clone(def);
    // Preserve eaten / eatenOn; seed wins for macros/recipe/damaged
    return Object.assign({},def,{eaten:!!prev.eaten,eatenOn:prev.eatenOn||def.eatenOn||null,slot:prev.slot||def.slot||null});
-  }).concat(keep);
- }else if(String(cur.week)>String(sd.week)){
-  cur.items=(cur.items||[]).map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten}));
+  });
  }else{
-  yfArchiveTicks(cur);
-  // Skip meals already archived from this box earlier (e.g. a phone that went W40→W41→W40 on the 6 Oct rollback).
-  const done=new Set();Object.keys(S.meals.log||{}).forEach(day=>{const a=S.meals.log[day];if(Array.isArray(a))a.forEach(r=>{if(r&&r.id)done.add(r.id);});});
-  const carry=(cur.items||[]).filter(it=>it&&!it.eaten&&!it.damaged&&!it.leftover&&!done.has('yfa-'+(cur.week||'')+'-'+it.id)).map(it=>Object.assign(clone(it),{
-   id:'lo-'+(cur.week||'')+'-'+it.id,name:yfBaseName(it.name)+' (left from '+(cur.week||'last week')+')',leftover:true,eaten:false,eatenOn:null,slot:null}));
-  S.meals.delivery=clone(sd);
-  S.meals.delivery.items=S.meals.delivery.items.concat(carry);
-  switched=true;
+  const manualFuture=S.meals.delivery.source==='manual'&&String(S.meals.delivery.week)>String(d.delivery.week);
+  if(manualFuture){
+   S.meals.delivery.items=(S.meals.delivery.items||[]).map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten}));
+  }else{
+   // Adopt seed (e.g. stored W41 → seed W40)
+   S.meals.delivery=clone(d.delivery);
+  }
  }
- // Plan week: follow the seed; merge ticks by id so no day loses what was ticked.
- if(S.meals.planWeekStart!==d.planWeekStart)switched=true;
- S.meals.planWeekStart=d.planWeekStart;
- if(!S.meals.days||typeof S.meals.days!=='object'||Array.isArray(S.meals.days))S.meals.days={};
- Object.keys(d.days).forEach(k=>{
-  const old=S.meals.days[k];
-  if(!old||!Array.isArray(old.items)){S.meals.days[k]=clone(d.days[k]);return;}
-  const byId={};old.items.forEach(i=>{if(i&&i.id)byId[i.id]=i;});
-  S.meals.days[k]={
-   notes:(old.notes!=null&&old.notes!=='')?old.notes:d.days[k].notes,
-   items:d.days[k].items.map(def=>{const prev=byId[def.id];return prev?Object.assign({},def,{eaten:!!prev.eaten}):clone(def);})
-  };
- });
+ // Plan week: force to seed when different (W41 week → W40 week)
+ if(S.meals.planWeekStart!==d.planWeekStart){
+  S.meals.planWeekStart=d.planWeekStart;
+  if(!S.meals.days||typeof S.meals.days!=='object')S.meals.days={};
+  Object.keys(d.days).forEach(k=>{S.meals.days[k]=clone(d.days[k]);});
+ }else if(!S.meals.days||typeof S.meals.days!=='object'){
+  S.meals.days=d.days;
+ }else{
+  Object.keys(d.days).forEach(k=>{
+   if(!S.meals.days[k])S.meals.days[k]=clone(d.days[k]);
+   else{
+    const byId={};(S.meals.days[k].items||[]).forEach(i=>{if(i&&i.id)byId[i.id]=i;});
+    S.meals.days[k]={
+     notes:(S.meals.days[k].notes!=null&&S.meals.days[k].notes!=='')?S.meals.days[k].notes:d.days[k].notes,
+     items:d.days[k].items.map(def=>{
+      const prev=byId[def.id];
+      return prev?Object.assign({},def,{eaten:!!prev.eaten}):clone(def);
+     })
+    };
+   }
+  });
+ }
  S.meals.targets=Object.assign({},MEAL_TARGETS,S.meals.targets||{});
  if(!S.meals.targets.goal)S.meals.targets.goal='maintain';
  if(!S.meals.targets.kcalManual){const got=kcalForGoal(S.meals.targets.goal);if(got){S.meals.targets.kcal=got.kcal;S.meals.targets.kcalNote=got.note;}}
@@ -1558,70 +1504,9 @@ function ensureMeals(){
   S.meals.library[f.id]=Object.assign({},S.meals.library[f.id]||{},favToLibraryEntry(f));
   if(!S.meals.favourites.includes(f.id))S.meals.favourites.push(f.id);
  });
- if(syncYfLib())switched=true;
- if(switched)save();
  return S.meals;
 }
-/** Move ticked meals of a Youfoodz box into the daily log (so macros stay in history once the box is replaced). */
-function yfArchiveTicks(box){
- if(!box||!Array.isArray(box.items))return;
- if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
- box.items.forEach(it=>{
-  if(!it||!it.eaten||it.damaged||!it.eatenOn)return;
-  const aid='yfa-'+(box.week||'')+'-'+it.id;
-  if(!Array.isArray(S.meals.log[it.eatenOn]))S.meals.log[it.eatenOn]=[];
-  if(!S.meals.log[it.eatenOn].some(r=>r&&r.id===aid))S.meals.log[it.eatenOn].push({id:aid,name:yfBaseName(it.name)+' (Youfoodz)',kcal:n0(it.kcal),protein:n0(it.protein),carbs:n0(it.carbs),fat:it.fat==null?null:n0(it.fat),barcode:null,t:Date.now(),source:'youfoodz',slot:normSlot(it.slot||'lunch')});
- });
-}
-/* ---- My Youfoodz meals: every Youfoodz meal you've had, tap to log again (unlimited) ---- */
-function yfBaseName(n){let s=String(n||'').trim(),p;do{p=s;s=s.replace(/\s*\(Youfoodz\)\s*$/i,'').replace(/\s*\(left from [^)]*\)\s*$/i,'').replace(/\s*[—–-]\s*pack \d+ of \d+\s*$/i,'').trim();}while(s!==p);return s;}
-function yfKey(n){return yfBaseName(n).toLowerCase().replace(/\s+/g,' ');}
-function isYfLog(x){return !!x&&(x.source==='youfoodz'||/\(Youfoodz\)\s*$/i.test(x.name||''));}
-/** Add any Youfoodz meal not yet in S.meals.yfLib. Never removes. Returns true when something was added. */
-function syncYfLib(){
- if(!S.meals.yfLib||typeof S.meals.yfLib!=='object'||Array.isArray(S.meals.yfLib))S.meals.yfLib={};
- const L=S.meals.yfLib,t=todayKey();let added=false;
- const add=(it,week)=>{if(!it||!it.name)return;const k=yfKey(it.name);if(!k)return;
-  if(L[k]){if(week&&!(L[k].weeks||[]).includes(week))L[k].weeks=(L[k].weeks||[]).concat(week);return;}
-  L[k]={name:yfBaseName(it.name),kcal:n0(it.kcal),protein:n0(it.protein),carbs:it.carbs==null?null:n0(it.carbs),fat:it.fat==null?null:n0(it.fat),
-   flag:it.flag||'',note:it.note||'',allergens:it.allergens||'',ingredients:it.ingredients||'',url:it.url||'',weeks:week?[week]:[],added:Date.now()};
-  added=true;};
- YF_DELIVERIES.forEach(dl=>{if(dl.date>t)return;dl.items.forEach(it=>{if(!it.damaged||it.eaten)add(it,dl.week);});});
- const box=S.meals.delivery;if(box&&Array.isArray(box.items))box.items.forEach(it=>{if(it&&(!it.damaged||it.eaten))add(it,it.leftover?null:box.week);});
- Object.keys(S.meals.log||{}).forEach(day=>{const arr=S.meals.log[day];if(Array.isArray(arr))arr.forEach(x=>{if(isYfLog(x))add(x,null);});});
- return added;
-}
-function yfLogCount(k){let n=0;
- Object.keys(S.meals.log||{}).forEach(day=>{const arr=S.meals.log[day];if(Array.isArray(arr))arr.forEach(x=>{if(isYfLog(x)&&yfKey(x.name)===k)n++;});});
- ((S.meals.delivery&&S.meals.delivery.items)||[]).forEach(it=>{if(it&&it.eaten&&!it.damaged&&yfKey(it.name)===k)n++;});
- return n;}
-function yfLibRow(k){
- const f=S.meals.yfLib[k];if(!f)return '';
- const n=yfLogCount(k);
- const sub=n0(f.kcal)+' kcal · '+n0(f.protein)+'g P'+(f.carbs!=null?' · '+n0(f.carbs)+'g C':'')+(f.fat!=null?' · '+n0(f.fat)+'g F':'')+(n?' · had '+n+'×':'');
- return `<div class="favrow"><button type="button" class="btn favbtn" data-a="yfLibAdd" data-k="${esc(k)}"><span>+ ${esc(f.name)}</span><small>${esc(sub)}</small></button>
-  <button type="button" class="btn sm favinfo" data-a="yfLibInfo" data-k="${esc(k)}" title="Macros / info" aria-label="Info">ⓘ</button></div>`;
-}
-function yfLibHtml(dayKey){
- ensureMeals();
- const keys=Object.keys(S.meals.yfLib||{}).sort((a,b)=>S.meals.yfLib[a].name.localeCompare(S.meals.yfLib[b].name));
- if(!keys.length)return '';
- return `<details class="card" id="yfLibBox" ${yfLibOpen?'open':''}><summary style="justify-content:space-between;width:100%"><b>🍱 My Youfoodz meals</b><span class="muted">${keys.length}</span></summary>
-  <div class="muted" style="margin:4px 0 8px">Tap to add 1 meal to <b>${esc(slotName(currentSlot()))}</b> on ${esc(fmtKeyShort(dayKey||mealDayKey()))}. Tap again to add another. Remove with ✕ in the log.</div>
-  ${keys.map(yfLibRow).join('')}</details>`;
-}
-function yfLibInfoModal(k){
- ensureMeals();const f=S.meals.yfLib[k];if(!f){toast('Meal not found');return;}
- const fat=f.fat!=null?` · ${f.fat}g F`:'';
- modal(`<div class="hrow"><h2 style="margin:0;flex:1">${esc(f.name)}</h2><button class="btn sm" data-a="closeModal">Close</button></div>
-  <div class="muted">Youfoodz${(f.weeks||[]).length?' · '+esc(f.weeks.join(', ')):''} · had ${yfLogCount(k)}×</div>
-  <div class="card" style="margin-top:8px"><b>${n0(f.kcal)} kcal · ${n0(f.protein)}g P${f.carbs!=null?' · '+f.carbs+'g C':''}${fat}</b></div>
-  ${f.flag?`<div class="hint warn" style="margin-top:8px">⚠ ${esc(f.flag)}</div>`:''}${f.note?`<div class="muted" style="margin-top:8px">${esc(f.note)}</div>`:''}
-  ${f.allergens?`<div style="margin-top:10px"><div class="muted" style="font-size:12px">Allergens</div><b>${esc(f.allergens)}</b></div>`:''}
-  ${f.ingredients?`<div style="margin-top:10px"><div class="muted" style="font-size:12px">Ingredients</div><div style="white-space:pre-wrap">${esc(f.ingredients)}</div></div>`:''}
-  <button class="btn primary wide" data-a="yfLibAdd" data-k="${esc(k)}" style="margin-top:12px">+ Add to ${esc(slotName(currentSlot()))}</button>`);
-}
-let mealDay=null,mealMonth=null,mealTab='plan',mealSlot=null,sugOpen=false,yfOpen=false,yfLibOpen=false; // plan | log
+let mealDay=null,mealMonth=null,mealTab='plan',mealSlot=null,sugOpen=false,yfOpen=false; // plan | log
 const MEAL_SLOTS=[{id:'breakfast',label:'Breakfast'},{id:'lunch',label:'Lunch'},{id:'dinner',label:'Dinner'},{id:'snack',label:'Snacks'}];
 function defaultMealSlot(){
  const h=+new Intl.DateTimeFormat('en-AU',{timeZone:TZ,hour:'numeric',hourCycle:'h23'}).format(new Date());
@@ -1731,15 +1616,15 @@ function vMeals(){
  ensureMeals();
  const k=mealDayKey(),del=S.meals.delivery,eaten=dayEatenTotals(k),burn=cardioKcal(k),tot=Object.assign({},eaten,{kcal:eaten.kcal-burn}),planTot=dayPlannedTotals(k),day=dayPlan(k);
  const st=del.status?` · ${esc(del.status)}`:'';
- let h=`<h1>Meals</h1><div class="muted">${esc(del.week||'')} · Youfoodz checklist + home suggestions · local only</div>`;
+ let h=`<h1>Meals</h1><div class="muted">W40 · Youfoodz checklist + home suggestions · local only</div>`;
  // Delivery card — checklist, no day assignment
- const yfAvail=(del.items||[]).filter(i=>!i.damaged&&!i.leftover);
+ const yfAvail=(del.items||[]).filter(i=>!i.damaged);
  const yfDone=yfAvail.filter(i=>i.eaten).length;
  h+=`<details class="card hero" id="yfBox" ${yfOpen?'open':''}><summary style="justify-content:space-between;width:100%"><b>🍽️ Youfoodz this week</b><span class="muted">${yfDone}/${yfAvail.length} eaten</span></summary>
   <div class="muted" style="margin-top:4px">Delivery ${fmtKeyDate(del.date)} · ${esc(del.area||'')} · ${esc(del.week)}${st}. Tick when you eat one — macros go to <b>the selected day</b> below (not pre-assigned).</div>
-  ${yfNextNote()?`<div class="hint up" style="margin-top:8px">${esc(yfNextNote())}</div>`:''}
+  <div class="hint up" style="margin-top:8px">${esc(YF_W41_NOTE)}</div>
   <div style="margin-top:8px">${(del.items||[]).map(it=>{
-   const flag=(it.flag?`<div class="hint warn" style="margin:4px 0 0">⚠ ${esc(it.flag)}</div>`:'')+(it.leftover?`<div class="muted" style="margin:4px 0 0;font-size:12px">Leftover from last box — tick if you eat it</div>`:'');
+   const flag=it.flag?`<div class="hint warn" style="margin:4px 0 0">⚠ ${esc(it.flag)}</div>`:'';
    const dmg=it.damaged;
    const status=dmg?`<div class="hint warn" style="margin:4px 0 0">🚫 ${esc(it.status||'Damaged · credit')}</div>`:
     (it.eaten&&it.eatenOn?`<div class="muted" style="margin:4px 0 0;font-size:12px">Logged → ${esc(slotName(it.slot))} · ${esc(fmtKeyShort(it.eatenOn))}</div>`:'');
@@ -1761,7 +1646,6 @@ function vMeals(){
  h+=macroBar(tot,burn,eaten.kcal);
  if(day.notes)h+=`<div class="hint up">${esc(day.notes)}</div>`;
  h+=favouritesRow(k);
- h+=yfLibHtml(k);
 
  const logged=mealEntryRows(k);
  h+=`<h2>Logged ${fmtKeyShort(k)}</h2>`+renderSlotGroups(logged);
@@ -2037,13 +1921,12 @@ function saveToLibrary(code,food){
 function applyYoufoodzDelivery(payload){
  ensureMeals();
  if(!payload||!payload.week||!Array.isArray(payload.items)){toast('Invalid delivery');return;}
- if(S.meals.delivery&&S.meals.delivery.week!==payload.week)yfArchiveTicks(S.meals.delivery);
  S.meals.delivery={
   week:payload.week,date:payload.date||'',area:payload.area||S.meals.delivery.area||'',
   status:payload.status||'',source:'manual',
   items:payload.items.map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten,eatenOn:it.eatenOn||null}))
  };
- syncYfLib();save();toast('✓ Youfoodz '+payload.week+' loaded');render();
+ save();toast('✓ Youfoodz '+payload.week+' loaded');render();
 }
 
 
