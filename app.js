@@ -329,7 +329,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6k</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6l</div>
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, DB shrug, hammer curl, standing calf':'rear delt, machine lateral, cable shrug, cable curl, seated calf'}</div>
@@ -361,7 +361,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6k</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6l</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -778,6 +778,12 @@ const A={
  goal:t=>{const got=writeGoal(t.dataset.v);if(!got){toast('Could not set that goal');return;}save();render();toast(got.label+' · '+got.kcal+' kcal');},
  mealSlot:t=>{mealSlot=t.dataset.v;render();},
  yfEat:t=>toggleYoufoodz(t.dataset.id,t.checked),
+ yfPastAdd:t=>{
+  ensureMeals();const it=(S.meals.yfPast||[]).find(x=>x.id===t.dataset.id);if(!it){toast('Meal missing');return;}
+  const day=mealDayKey(),slot=currentSlot();
+  dayLog(day).push({name:it.name,kcal:n0(it.kcal),protein:n0(it.protein),carbs:it.carbs==null?null:n0(it.carbs),fat:it.fat==null?null:n0(it.fat),slot,source:'youfoodz',yfId:it.id,at:Date.now()});
+  save();toast('✓ '+it.name+' → '+slotName(slot)+' · '+fmtKeyShort(day));render();
+ },
  mealEat:t=>togglePlanItem(t.dataset.d,t.dataset.id,t.checked),
  mealRecipe:t=>mealRecipeModal(t.dataset.kind,t.dataset.id,t.dataset.d),
  bcScan:()=>openBarcodeScanner(),
@@ -1444,14 +1450,28 @@ function defaultMeals(){
   favourites:favIds
  };
 }
+function yfSnap(it,week){return {id:it.id,name:it.name,kcal:it.kcal,protein:it.protein,carbs:it.carbs!=null?it.carbs:null,fat:it.fat!=null?it.fat:null,allergens:it.allergens||'',ingredients:it.ingredients||'',note:it.note||'',flag:it.flag||'',url:it.url||'',week:week||it.week||''};}
+function rememberYf(items,week){if(!S.meals)return;if(!Array.isArray(S.meals.yfPast))S.meals.yfPast=[];
+ const by={};S.meals.yfPast.forEach(i=>{if(i&&i.id)by[i.id]=i;});
+ (items||[]).forEach(it=>{if(!it||!it.id||it.damaged)return;by[it.id]=Object.assign({},by[it.id]||{},yfSnap(it,week));});
+ S.meals.yfPast=Object.keys(by).map(id=>by[id]);}
+function parkEatenYf(it){if(!it||it.parked||!it.eaten||it.damaged||!/^\d{4}-\d{2}-\d{2}$/.test(it.eatenOn||''))return;
+ if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
+ if(!Array.isArray(S.meals.log[it.eatenOn]))S.meals.log[it.eatenOn]=[];
+ const log=S.meals.log[it.eatenOn];if(!log.some(x=>x&&x.yfId===it.id))log.push({name:it.name,kcal:n0(it.kcal),protein:n0(it.protein),carbs:it.carbs==null?null:n0(it.carbs),fat:it.fat==null?null:n0(it.fat),slot:it.slot||'lunch',source:'youfoodz',yfId:it.id,at:Date.now()});
+ it.parked=1;}
 function ensureMeals(){
  if(!S.meals||typeof S.meals!=='object'){S.meals=defaultMeals();return S.meals;}
  const d=defaultMeals();
- // Weekly refresh / W41→W40 correction: seed is source of truth unless manual future override
+ if(!Array.isArray(S.meals.yfPast))S.meals.yfPast=[];
  if(!S.meals.delivery||!Array.isArray(S.meals.delivery.items)||!S.meals.delivery.week){
   S.meals.delivery=clone(d.delivery);
  }else if(S.meals.delivery.week===d.delivery.week){
-  const byId={};(S.meals.delivery.items||[]).forEach(i=>{if(i&&i.id)byId[i.id]=i;});
+  const oldItems=S.meals.delivery.items||[],byId={};
+  oldItems.forEach(i=>{if(i&&i.id)byId[i.id]=i;});
+  const seedIds=new Set(d.delivery.items.map(i=>i.id));
+  const dropped=oldItems.filter(i=>i&&i.id&&!seedIds.has(i.id));
+  dropped.forEach(parkEatenYf);rememberYf(dropped,S.meals.delivery.week);
   S.meals.delivery=Object.assign({},d.delivery,S.meals.delivery,{
    week:d.delivery.week,date:d.delivery.date,area:d.delivery.area||S.meals.delivery.area,
    status:d.delivery.status||S.meals.delivery.status,source:S.meals.delivery.source||'seed'
@@ -1459,18 +1479,19 @@ function ensureMeals(){
   S.meals.delivery.items=d.delivery.items.map(def=>{
    const prev=byId[def.id];
    if(!prev)return clone(def);
-   // Preserve eaten / eatenOn; seed wins for macros/recipe/damaged
-   return Object.assign({},def,{eaten:!!prev.eaten,eatenOn:prev.eatenOn||def.eatenOn||null,slot:prev.slot||def.slot||null});
+   return Object.assign({},def,{eaten:!!prev.eaten,eatenOn:prev.eatenOn||def.eatenOn||null,slot:prev.slot||def.slot||null,parked:prev.parked?1:0});
   });
  }else{
-  const manualFuture=S.meals.delivery.source==='manual'&&String(S.meals.delivery.week)>String(d.delivery.week);
+  const old=S.meals.delivery;
+  (old.items||[]).forEach(parkEatenYf);rememberYf(old.items,old.week);
+  const manualFuture=old.source==='manual'&&String(old.week)>String(d.delivery.week);
   if(manualFuture){
-   S.meals.delivery.items=(S.meals.delivery.items||[]).map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten}));
-  }else{
-   // Adopt seed (e.g. stored W41 → seed W40)
-   S.meals.delivery=clone(d.delivery);
-  }
+   S.meals.delivery.items=(old.items||[]).map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten}));
+   const ids=new Set((S.meals.delivery.items||[]).map(i=>i&&i.id));
+   rememberYf(d.delivery.items.filter(i=>i&&!ids.has(i.id)),d.delivery.week);
+  }else S.meals.delivery=clone(d.delivery);
  }
+ (S.meals.delivery.items||[]).forEach(parkEatenYf);
  // Plan week: force to seed when different (W41 week → W40 week)
  if(S.meals.planWeekStart!==d.planWeekStart){
   S.meals.planWeekStart=d.planWeekStart;
@@ -1530,7 +1551,7 @@ function dayMarked(k){
  if(Array.isArray(log)&&log.length)return true;
  const p=S.meals.days&&S.meals.days[k];
  if(p&&(p.items||[]).some(i=>i&&i.eaten))return true;
- return (S.meals.delivery&&S.meals.delivery.items||[]).some(i=>i&&i.eaten&&!i.damaged&&i.eatenOn===k);
+ return false;
 }
 function mealCalHtml(selected){
  const ym=mealMonth||selected.slice(0,7);mealMonth=ym;
@@ -1557,7 +1578,7 @@ function yfEatenOnDay(k){
 function dayEatenTotals(k){
  const plan=(dayPlan(k).items||[]).filter(i=>i.eaten);
  const log=dayLog(k);
- return sumMacros(plan.concat(log).concat(yfEatenOnDay(k)));
+ return sumMacros(plan.concat(log));
 }
 function cardioKcal(k){
  let n=0;
@@ -1591,7 +1612,7 @@ function macroBar(tot,burn,foodKcal){
   <div class="mbar">${body}</div>${burn?`<div class="muted" style="margin-top:6px">Food ${Math.round(foodKcal)} kcal · cardio −${burn} kcal</div>`:''}${t.kcalNote&&!t.kcalManual?`<div class="muted" style="margin-top:6px">${esc(t.kcalNote)}</div>`:t.kcalManual?'<div class="muted" style="margin-top:6px">Custom calories. Pick a goal to use your stats again.</div>':''}</div>`;
 }
 function slotLabel(s){return ({breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snack:'Snack',treat:'Treat'}[s]||s||'Meal');}
-function findYf(id){ensureMeals();return (S.meals.delivery.items||[]).find(x=>x.id===id)||null;}
+function findYf(id){ensureMeals();return (S.meals.delivery.items||[]).find(x=>x.id===id)||(S.meals.yfPast||[]).find(x=>x.id===id)||null;}
 function findPlanItem(day,id){const d=dayPlan(day);return (d.items||[]).find(x=>x.id===id)||null;}
 function mealRecipeModal(kind,id,day){
  ensureMeals();
@@ -1626,16 +1647,25 @@ function vMeals(){
   <div style="margin-top:8px">${(del.items||[]).map(it=>{
    const flag=it.flag?`<div class="hint warn" style="margin:4px 0 0">⚠ ${esc(it.flag)}</div>`:'';
    const dmg=it.damaged;
+   const onDay=!dmg&&(S.meals.log[k]||[]).some(x=>x&&x.yfId===it.id);
+   const days=yfDays(it.id);
    const status=dmg?`<div class="hint warn" style="margin:4px 0 0">🚫 ${esc(it.status||'Damaged · credit')}</div>`:
-    (it.eaten&&it.eatenOn?`<div class="muted" style="margin:4px 0 0;font-size:12px">Logged → ${esc(slotName(it.slot))} · ${esc(fmtKeyShort(it.eatenOn))}</div>`:'');
+    (days.length?`<div class="muted" style="margin:4px 0 0;font-size:12px">Logged ${days.map(d=>esc(fmtKeyShort(d))).join(', ')}</div>`:'');
    const dis=dmg?'disabled':'';
-   const chk=it.eaten&&!dmg?'checked':'';
+   const chk=onDay?'checked':'';
    return `<div class="hrow" style="align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
     <label class="chk grow" style="align-items:flex-start;min-height:0;margin:0"><input type="checkbox" data-a="yfEat" data-id="${esc(it.id)}" ${chk} ${dis}>
      <span><b>${esc(it.name)}</b><br><span class="muted">${it.kcal} kcal · ${it.protein}g P${it.carbs!=null?' · '+it.carbs+'g C':''}${it.fat!=null?' · '+it.fat+'g F':''}</span>${flag}${status}</span></label>
     <button type="button" class="btn sm" data-a="mealRecipe" data-kind="yf" data-id="${esc(it.id)}" title="Recipe / info" aria-label="Recipe">ⓘ</button>
    </div>`;
-  }).join('')}</div></details>`;
+  }).join('')}</div>
+  ${(()=>{const past=(S.meals.yfPast||[]).filter(p=>p&&p.id&&!(del.items||[]).some(i=>i.id===p.id));if(!past.length)return '';
+   return `<div class="muted" style="margin-top:10px"><b>Previous meals</b> · kept so you can log them again</div>`+past.map(it=>`<div class="hrow" style="align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
+    <span class="grow"><b>${esc(it.name)}</b><br><span class="muted">${it.kcal} kcal · ${it.protein}g P${it.carbs!=null?' · '+it.carbs+'g C':''}${it.fat!=null?' · '+it.fat+'g F':''}${it.week?' · '+esc(it.week):''}</span></span>
+    <button type="button" class="btn sm" data-a="mealRecipe" data-kind="yf" data-id="${esc(it.id)}" aria-label="Recipe">ⓘ</button>
+    <button type="button" class="btn sm primary" data-a="yfPastAdd" data-id="${esc(it.id)}">+ Log</button>
+   </div>`).join('');})()}
+  </details>`;
 
  // Calendar — any date, not just the seeded 28 Sep–4 Oct plan week
  h+=mealCalHtml(k);
@@ -1684,11 +1714,8 @@ function mealEntryRows(k){
   if(!it.eaten)return;
   rows.push({slot:normSlot(it.slot),html:`<div class="item" style="cursor:default"><span><b>${esc(it.name)}</b><br><span class="muted">${it.kcal} kcal · ${it.protein}g P · suggestion</span></span><button class="btn sm" data-a="mealRecipe" data-kind="plan" data-d="${k}" data-id="${esc(it.id)}">ⓘ</button></div>`});
  });
- yfEatenOnDay(k).forEach(it=>{
-  rows.push({slot:normSlot(it.slot||'lunch'),html:`<div class="item" style="cursor:default"><span><b>${esc(it.name)}</b><br><span class="muted">${it.kcal} kcal · ${it.protein}g P · Youfoodz</span></span><button class="btn sm" data-a="mealRecipe" data-kind="yf" data-id="${esc(it.id)}">ⓘ</button></div>`});
- });
  dayLog(k).forEach((x,i)=>{
-  rows.push({slot:normSlot(x.slot),html:`<div class="item" style="cursor:default"><span><b>${esc(x.name)}</b><br><span class="muted">${Math.round(n0(x.kcal))} kcal · ${n0(x.protein)}g P · ${n0(x.carbs)}g C · ${x.fat!=null?n0(x.fat)+'g F':'—'}</span></span><button class="btn sm danger" data-a="foodLogDel" data-d="${k}" data-i="${i}">✕</button></div>`});
+  rows.push({slot:normSlot(x.slot),html:`<div class="item" style="cursor:default"><span><b>${esc(x.name)}</b><br><span class="muted">${Math.round(n0(x.kcal))} kcal · ${n0(x.protein)}g P · ${n0(x.carbs)}g C · ${x.fat!=null?n0(x.fat)+'g F':'—'}${x.source==='youfoodz'?' · Youfoodz':''}</span></span><button class="btn sm danger" data-a="foodLogDel" data-d="${k}" data-i="${i}">✕</button></div>`});
  });
  return rows;
 }
@@ -1879,20 +1906,25 @@ function customFoodModal(){
   <button class="btn primary grow" data-a="foodCustomOk">Add to today</button></div>`);
 }
 /** Tick Youfoodz: log macros to the currently selected Meals day (or today). Damaged items ignored. */
+function yfDays(id){ensureMeals();const days=[];Object.keys(S.meals.log||{}).sort().forEach(d=>{if((S.meals.log[d]||[]).some(x=>x&&x.yfId===id))days.push(d);});return days;}
 function toggleYoufoodz(yfId,eaten){
  ensureMeals();
  const day=mealDayKey();
  const slot=currentSlot();
  const it=(S.meals.delivery.items||[]).find(x=>x.id===yfId);if(!it)return;
  if(it.damaged){toast('Damaged — credit only, not edible');render();return;}
+ const log=dayLog(day);
+ const idx=log.findIndex(x=>x&&x.yfId===yfId);
  if(eaten){
-  it.eaten=true;
-  it.eatenOn=day;
-  it.slot=slot;
-  toast('✓ '+it.name+' → '+slotName(it.slot)+' · '+fmtKeyShort(it.eatenOn));
+  const row={name:it.name,kcal:n0(it.kcal),protein:n0(it.protein),carbs:it.carbs==null?null:n0(it.carbs),fat:it.fat==null?null:n0(it.fat),slot,source:'youfoodz',yfId:it.id,at:Date.now()};
+  if(idx<0)log.push(row);else log[idx]=Object.assign({},log[idx],row);
+  it.eaten=true;it.eatenOn=day;it.slot=slot;it.parked=1;
+  toast('✓ '+it.name+' → '+slotName(slot)+' · '+fmtKeyShort(day));
  }else{
-  it.eaten=false;it.eatenOn=null;it.slot=null;
-  toast('Removed from the day');
+  if(idx>=0)log.splice(idx,1);
+  const left=yfDays(yfId);
+  it.eaten=left.length>0;it.eatenOn=left.length?left[left.length-1]:null;it.slot=it.eaten?it.slot:null;
+  toast('Removed from this day — other days stay');
  }
  save();render();
 }
@@ -1921,6 +1953,9 @@ function saveToLibrary(code,food){
 function applyYoufoodzDelivery(payload){
  ensureMeals();
  if(!payload||!payload.week||!Array.isArray(payload.items)){toast('Invalid delivery');return;}
+ if(S.meals.delivery&&S.meals.delivery.week&&S.meals.delivery.week!==payload.week){
+  (S.meals.delivery.items||[]).forEach(parkEatenYf);rememberYf(S.meals.delivery.items,S.meals.delivery.week);
+ }
  S.meals.delivery={
   week:payload.week,date:payload.date||'',area:payload.area||S.meals.delivery.area||'',
   status:payload.status||'',source:'manual',
