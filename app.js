@@ -196,7 +196,21 @@ function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.
  if(!s.settings.addedTraps){(s.plan||[]).forEach(p=>{if(!p||!Array.isArray(p.exercises)||p.exercises.some(e=>/shrug|farmer carry/i.test(e.name||'')))return;
   const item=p.id==='upperA'?ex('DB shrug',3,'10-12'):p.id==='upperB'?ex('Chest-supported shrug',3,'10-12'):null;if(!item)return;
   const a=p.exercises.findIndex(e=>e.abs);p.exercises.splice(a>=0?a:p.exercises.length,0,item);});s.settings.addedTraps=1;s._deduped=1;s._trapsAdd=1;}
+ repairPlan(s.plan);
  ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}});if(!s.block||typeof s.block!=='object')s.block={start:null,letter:'A',number:1};s.block.letter=(s.block.letter==='B'?'B':'A');s.block.number=Math.max(1,parseInt(s.block.number)||1);if(s.block.start&&!/^\d{4}-\d{2}-\d{2}$/.test(s.block.start))s.block.start=null;s.meals=s.meals&&typeof s.meals==='object'?s.meals:null;return s;}
+function repairPlan(plan){(plan||[]).forEach(p=>{if(!p||!Array.isArray(p.exercises))return;
+ p.exercises.forEach(e=>{if(!e||!/landmine press|plate front raise|front raise/i.test(e.name||''))return;e.name='DB lateral raise';e.sets=3;e.reps='15';e.press=1;e.main=false;e.cardio=false;});
+ const chest=p.id==='upperA'?ex('Cable chest fly',3,'12-15',{press:1}):p.id==='upperB'?ex('Pec deck',2,'12-15',{press:1}):null;
+ if(chest&&!p.exercises.some(e=>/chest fly|pec deck/i.test(e.name||''))){const after=p.id==='upperA'?'Neutral-grip DB press (low incline)':'Machine chest press';let i=p.exercises.findIndex(e=>e.name===after);if(i<0){const a=p.exercises.findIndex(e=>e.abs);i=a>=0?a-1:-1;}p.exercises.splice(i>=0?i+1:p.exercises.length,0,chest);}
+ const shrug=p.id==='upperA'?ex('DB shrug',3,'10-12'):p.id==='upperB'?ex('Chest-supported shrug',3,'10-12'):null;
+ if(shrug&&!p.exercises.some(e=>/shrug|farmer carry/i.test(e.name||''))){const a=p.exercises.findIndex(e=>e.abs);p.exercises.splice(a>=0?a:p.exercises.length,0,shrug);}
+});}
+function repairSession(s){if(!s||!Array.isArray(s.exercises))return;
+ s.exercises.forEach((e,i)=>{if(e&&/landmine press|plate front raise|front raise/i.test(e.name||'')&&!((e.sets||[]).some(st=>st&&st.done)))s.exercises[i]=mkEx(ex('DB lateral raise',3,'15',{press:1}));});
+ const id=s.planId;if(id!=='upperA'&&id!=='upperB')return;
+ if(!s.exercises.some(e=>/chest fly|pec deck/i.test(e.name||''))){const e=mkEx(ex(id==='upperA'?'Cable chest fly':'Pec deck',id==='upperA'?3:2,'12-15',{press:1}));const after=id==='upperA'?'Neutral-grip DB press (low incline)':'Machine chest press';let i=s.exercises.findIndex(x=>x.name===after);if(i<0)i=s.exercises.findIndex(x=>/press/i.test(x.name||'')&&!x.abs);s.exercises.splice(i>=0?i+1:s.exercises.length,0,e);}
+ if(!s.exercises.some(e=>/shrug|farmer carry/i.test(e.name||''))){const e=mkEx(ex(id==='upperA'?'DB shrug':'Chest-supported shrug',3,'10-12'));const a=s.exercises.findIndex(x=>x.abs);s.exercises.splice(a>=0?a:s.exercises.length,0,e);}
+}
 function dataScore(x){if(!x||typeof x!=='object')return 0;const sess=Array.isArray(x.sessions)?x.sessions.length:0;let meals=0;if(x.meals&&x.meals.log&&typeof x.meals.log==='object')Object.keys(x.meals.log).forEach(k=>{meals+=(x.meals.log[k]||[]).length;});const body=Array.isArray(x.body)?x.body.length:0;return sess*10+meals+body;}
 function mealDayCount(){if(!S.meals||!S.meals.log||typeof S.meals.log!=='object')return 0;return Object.keys(S.meals.log).filter(k=>Array.isArray(S.meals.log[k])&&S.meals.log[k].length).length;}
 function readStore(k){try{const r=localStorage.getItem(k);return r?JSON.parse(r):null;}catch(e){return null;}}
@@ -224,6 +238,7 @@ if(S._trapsAdd&&S.active&&Array.isArray(S.active.exercises)&&(S.active.planId===
  S.active.exercises.splice(a>=0?a:S.active.exercises.length,0,e);
 }
 delete S._chestAdd;delete S._frontDelt;delete S._trapsAdd;
+if(S.active)repairSession(S.active);
 let bakTimer=null,_bdb=null;
 if(S._absMerged||S._deduped){delete S._absMerged;delete S._deduped;if(!loadBroken)save();}
 function save(){if(loadBroken){toast('Saved workouts couldn’t be read, so nothing was overwritten');return;}
@@ -366,7 +381,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6n</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6o · chest fly, shrugs, meal calendar, bodyweight timer, auto-start sets</div>
  <div class="muted">Stored in this app icon: ${S.sessions.length} workout${S.sessions.length===1?'':'s'} · ${mealDayCount()} meal day${mealDayCount()===1?'':'s'}.${S.settings.lastBackupAt?' Last workout backup '+fmtDate(S.settings.lastBackupAt)+'.':''} A backup file is saved when you finish a workout.</div>
  ${S.sessions.length||mealDayCount()?'':`<div class="hint warn">This copy of the app has no saved workouts or meals. Open the same home-screen icon you used before. A browser tab or a second shortcut does not share that data. Settings → Import if you downloaded a backup.</div>`}
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
@@ -400,7 +415,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6n</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6o</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;

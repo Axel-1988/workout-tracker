@@ -4,12 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f1115">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Workout Tracker</title>
 <link rel="manifest" id="mf" href="data:application/manifest+json,{}">
 <link rel="apple-touch-icon" id="ati" href="data:,">
-<link rel="stylesheet" href="app.css?v=20261002h">
+<link rel="stylesheet" href="app.css?v=20261010c">
+<script>
+if(!/[?&]cv=20261010c(?:&|$)/.test(location.search)){
+  location.replace(location.pathname+'?cv=20261010c');
+}
+</script>
 </head>
 <body>
 <main id="app"></main>
@@ -26,6 +33,6 @@
 <input type="file" id="phCam" accept="image/*" capture="environment" hidden>
 <input type="file" id="phUp" accept="image/*" multiple hidden>
 <input type="file" id="scanImg" accept="image/*,application/pdf,.pdf" hidden>
-<script src="app.js?v=20261010b"></script>
+<script src="app.js?v=20261010c"></script>
 </body>
 </html>
