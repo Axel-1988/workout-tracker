@@ -1,6 +1,6 @@
 'use strict';
 
-const TZ='Australia/Sydney', KEY='workoutTracker.v1', SCAN_KEY='workoutTracker.scans.v1';
+const TZ='Australia/Sydney', KEY='workoutTracker.v1', BAK='workoutTracker.v1.bak', SCAN_KEY='workoutTracker.scans.v1';
 function readScanVault(){try{const r=JSON.parse(localStorage.getItem(SCAN_KEY)||'null');return Array.isArray(r)?r.filter(x=>x&&x.id):[];}catch(e){return [];}}
 function writeScanVault(list){try{localStorage.setItem(SCAN_KEY,JSON.stringify(list||[]));}catch(e){}}
 function mergeScanLists(primary,backup){const byId={};(backup||[]).forEach(s=>{if(s&&s.id)byId[s.id]=s;});(primary||[]).forEach(s=>{if(s&&s.id)byId[s.id]=Object.assign({},byId[s.id]||{},s);});return Object.keys(byId).map(k=>byId[k]);}
@@ -197,7 +197,14 @@ function normalize(d){const s=Object.assign(defaults(),d||{});s.settings=Object.
   const item=p.id==='upperA'?ex('DB shrug',3,'10-12'):p.id==='upperB'?ex('Chest-supported shrug',3,'10-12'):null;if(!item)return;
   const a=p.exercises.findIndex(e=>e.abs);p.exercises.splice(a>=0?a:p.exercises.length,0,item);});s.settings.addedTraps=1;s._deduped=1;s._trapsAdd=1;}
  ['mobLog','backPain','cues'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]={}});if(!s.block||typeof s.block!=='object')s.block={start:null,letter:'A',number:1};s.block.letter=(s.block.letter==='B'?'B':'A');s.block.number=Math.max(1,parseInt(s.block.number)||1);if(s.block.start&&!/^\d{4}-\d{2}-\d{2}$/.test(s.block.start))s.block.start=null;s.meals=s.meals&&typeof s.meals==='object'?s.meals:null;return s;}
-function load(){try{const r=localStorage.getItem(KEY);if(r)return normalize(JSON.parse(r));}catch(e){console.error(e)}return defaults();}
+function dataScore(x){if(!x||typeof x!=='object')return 0;const sess=Array.isArray(x.sessions)?x.sessions.length:0;let meals=0;if(x.meals&&x.meals.log&&typeof x.meals.log==='object')Object.keys(x.meals.log).forEach(k=>{meals+=(x.meals.log[k]||[]).length;});const body=Array.isArray(x.body)?x.body.length:0;return sess*10+meals+body;}
+function mealDayCount(){if(!S.meals||!S.meals.log||typeof S.meals.log!=='object')return 0;return Object.keys(S.meals.log).filter(k=>Array.isArray(S.meals.log[k])&&S.meals.log[k].length).length;}
+function readStore(k){try{const r=localStorage.getItem(k);return r?JSON.parse(r):null;}catch(e){return null;}}
+let loadBroken=false;
+function load(){const cur=readStore(KEY),bak=readStore(BAK);let pick=cur;
+ if(bak&&dataScore(bak)>dataScore(cur))pick=bak;
+ if(!pick){try{if(localStorage.getItem(KEY))loadBroken=true;}catch(e){loadBroken=true;}return defaults();}
+ try{return normalize(pick);}catch(e){console.error(e);loadBroken=true;return Object.assign(defaults(),pick);}}
 let S=load();
 if(S._chestAdd&&S.active&&Array.isArray(S.active.exercises)&&!S.active.exercises.some(e=>/chest fly|pec deck/i.test(e.name||''))&&(S.active.planId==='upperA'||S.active.planId==='upperB')){
  const id=S.active.planId,letter=S.active.blockLetter==='B'?'B':'A';
@@ -217,9 +224,13 @@ if(S._trapsAdd&&S.active&&Array.isArray(S.active.exercises)&&(S.active.planId===
  S.active.exercises.splice(a>=0?a:S.active.exercises.length,0,e);
 }
 delete S._chestAdd;delete S._frontDelt;delete S._trapsAdd;
-if(S._absMerged||S._deduped){delete S._absMerged;delete S._deduped;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
-writeScanVault(S.scans);
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));writeScanVault(S.scans);}catch(e){toast('⚠ Could not save: '+e.message)}}
+if(S._absMerged||S._deduped){delete S._absMerged;delete S._deduped;if(!loadBroken)save();}
+function save(){if(loadBroken){toast('Saved workouts couldn’t be read, so nothing was overwritten');return;}
+ try{const prevRaw=localStorage.getItem(KEY);const prev=readStore(KEY);const next=JSON.stringify(S);
+  if(prev&&dataScore(prev)>dataScore(S))localStorage.setItem(BAK,prevRaw);
+  else if(dataScore(S)>0)localStorage.setItem(BAK,next);
+  localStorage.setItem(KEY,next);writeScanVault(S.scans);}catch(e){toast('⚠ Could not save: '+e.message)}}
+if(!loadBroken)writeScanVault(S.scans);
 
 // ---- dates (Australia/Sydney) ----
 const fmtKey=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'});
@@ -329,7 +340,9 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6l</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6m</div>
+ <div class="muted">Stored in this app icon: ${S.sessions.length} workout${S.sessions.length===1?'':'s'} · ${mealDayCount()} meal day${mealDayCount()===1?'':'s'}. Not saved to chat.</div>
+ ${S.sessions.length||mealDayCount()?'':`<div class="hint warn">This copy of the app has no saved workouts or meals. Open the same home-screen icon you used before. A browser tab or a second shortcut does not share that data. Settings → Import if you downloaded a backup.</div>`}
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
  <div class="muted" style="margin-top:4px">Next: Block ${bi.number+1}${bi.nextLetter} from ${fmtKeyShort(bi.nextStart)} · this block: ${bi.letter==='A'?'face pull, cable lateral, DB shrug, hammer curl, standing calf':'rear delt, machine lateral, cable shrug, cable curl, seated calf'}</div>
@@ -361,7 +374,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6l</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6m</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
