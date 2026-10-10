@@ -381,7 +381,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6o · chest fly, shrugs, meal calendar, bodyweight timer, auto-start sets</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6p · rest beeps, then the next set starts itself</div>
  <div class="muted">Stored in this app icon: ${S.sessions.length} workout${S.sessions.length===1?'':'s'} · ${mealDayCount()} meal day${mealDayCount()===1?'':'s'}.${S.settings.lastBackupAt?' Last workout backup '+fmtDate(S.settings.lastBackupAt)+'.':''} A backup file is saved when you finish a workout.</div>
  ${S.sessions.length||mealDayCount()?'':`<div class="hint warn">This copy of the app has no saved workouts or meals. Open the same home-screen icon you used before. A browser tab or a second shortcut does not share that data. Settings → Import if you downloaded a backup.</div>`}
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
@@ -415,7 +415,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6o</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6p</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -466,17 +466,17 @@ function exCard(e,i){const last=lastFor(e.name,S.active.id),bw=isBodyweight(e);l
  let swMsg='';
  if(e.cardio)swMsg='';
  else if(sideing)swMsg=tHoldN<tHoldOf?`Side ${tHoldN} of ${tHoldOf} · ${tHoldSec}s, then the other side`:`Side ${tHoldN} of ${tHoldOf} · ${tHoldSec}s`;
- else if(going)swMsg='Rest done — next set starts in a few seconds';
+ else if(going)swMsg='Get ready — this set starts by itself';
  else if(swOn)swMsg=`Set ${(nextJ>=0?nextJ:e.sets.length-1)+1} · working — tick ✓ when done`;
  else if(ready)swMsg='Rest done — start next set';
- else if(resting)swMsg=`Resting ${rest}s · next set starts 5s after the beep`;
+ else if(resting)swMsg='Resting. A low beep, then this set starts itself in 5 seconds. Press Next to skip the rest.';
  else if(allDone)swMsg='All sets done';
- else if(paired&&nextJ===0)swMsg=`Start set runs ${hold}s on one side, then ${hold}s on the other`;
- else if(nextJ===0)swMsg='Tap Start set to begin work timer';
+ else if(paired&&nextJ===0)swMsg=`Start set once. It runs ${hold}s each side, then rests and starts the next set.`;
+ else if(nextJ===0)swMsg='Tap Start set once. After that, the next set starts itself.';
  else swMsg=`Ready for set ${nextJ+1}`;
  if(!e.cardio){
   h+=`<div class="sw ${swCls}" id="swrow${i}"><span class="swlab">Work</span><span class="swtt" id="sw${i}">${fmtMMSS(swNow(e))}</span>`;
-  if(!allDone&&!swOn)h+=`<button class="btn sm primary" data-a="swStart" data-i="${i}">Start set</button>`;
+  if(!allDone&&!swOn&&!resting&&!going)h+=`<button class="btn sm primary" data-a="swStart" data-i="${i}">Start set</button>`;
   else if(swOn)h+=`<button class="btn sm" data-a="swPause" data-i="${i}">Pause</button>`;
   h+=`${swMsg?`<div class="swmsg">${swMsg}</div>`:''}</div>`;
  }
@@ -542,8 +542,9 @@ function insertPlanEx(p,tpl){const pe={name:tpl.name,sets:Math.max(1,parseInt(tp
 
 // ---- rest timer (guided set → rest → next set) ----
 let tEnd=0,tInt=null,tExIdx=null,tAwaitStart=false,tMode='rest',tHoldSec=0,tHoldN=0,tHoldOf=0,audio=null,wakeLock=null;
-function beep(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();[0,.25,.5].forEach(d=>{const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=880;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.3,audio.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d+.2);o.start(audio.currentTime+d);o.stop(audio.currentTime+d+.2);});}catch(e){}}
-function toneStart(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();[[0,523,.16],[.2,784,.18],[.42,1046,.32]].forEach(([d,f,len])=>{const o=audio.createOscillator(),g=audio.createGain();o.type='triangle';o.frequency.value=f;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.4,audio.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d+len);o.start(audio.currentTime+d);o.stop(audio.currentTime+d+len+.02);});}catch(e){}}
+function beep(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();[0,.25,.5].forEach(d=>{const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=880;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.3,audio.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d+.2);o.start(audio.currentTime+d);o.stop(audio.currentTime+d+.2);});}catch(e){}}
+function beepRest(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();[[0,196,.2],[.24,146,.32]].forEach(([d,f,len])=>{const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=f;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.55,audio.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d+len);o.start(audio.currentTime+d);o.stop(audio.currentTime+d+len+.02);});}catch(e){}}
+function toneStart(){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();[[0,523,.16],[.2,784,.2],[.42,1046,.36]].forEach(([d,f,len])=>{const o=audio.createOscillator(),g=audio.createGain();o.type='triangle';o.frequency.value=f;o.connect(g);g.connect(audio.destination);g.gain.setValueAtTime(.55,audio.currentTime+d);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+d+len);o.start(audio.currentTime+d);o.stop(audio.currentTime+d+len+.02);});}catch(e){}}
 function restSecFor(e){return e&&e.main?S.settings.restMain:S.settings.rest;}
 function nextOpenSet(e){if(!e||!e.sets)return -1;return e.sets.findIndex(st=>!st.done);}
 function setTimerActs(mode){const acts=document.getElementById('tActs');if(!acts)return;
@@ -551,7 +552,17 @@ function setTimerActs(mode){const acts=document.getElementById('tActs');if(!acts
  if(mode==='done'){
   if(tExIdx!=null)acts.innerHTML=`<button class="btn sm primary" data-a="tStartSet">Start set</button><button class="btn sm" data-a="tStop">Dismiss</button>`;
   else acts.innerHTML=`<button class="btn sm" data-a="tStop">Dismiss</button>`;}
- else{acts.innerHTML=`<button class="btn sm" data-a="tAdj" data-d="-15">−15</button><button class="btn sm" data-a="tAdj" data-d="15">+15</button><button class="btn sm" data-a="tStop">Skip</button>`;}}
+ else if(mode==='hold'){acts.innerHTML=`<button class="btn sm" data-a="tAdj" data-d="-15">−15</button><button class="btn sm" data-a="tAdj" data-d="15">+15</button><button class="btn sm" data-a="tStop">Skip</button>`;}
+ else{acts.innerHTML=`<button class="btn sm" data-a="tAdj" data-d="-15">−15</button><button class="btn sm" data-a="tAdj" data-d="15">+15</button><button class="btn sm" data-a="tReady">Next</button>`;}}
+function nextWorkIndex(from){const a=S.active&&S.active.exercises;if(!a)return -1;for(let k=from+1;k<a.length;k++){const e=a[k];if(e&&!e.cardio&&e.sets&&e.sets.some(st=>!st.done))return k;}return -1;}
+function armNextSet(){if(tExIdx==null||!S.active||!S.active.exercises[tExIdx]){stopTimer();return;}
+ beepRest();if(navigator.vibrate)navigator.vibrate([220,90,220]);
+ tMode='go';tAwaitStart=false;tEnd=Date.now()+5000;
+ const el=document.getElementById('timer'),lab=document.getElementById('tLab');
+ el.classList.remove('hidden');el.classList.add('fin');if(lab)lab.textContent='Get ready';
+ const tt=document.getElementById('tt');if(tt)tt.textContent='0:05';setTimerActs('go');
+ if(!tInt)tInt=setInterval(tick,250);
+ if(view==='session')render();}
 function startTimer(sec,exIdx){try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();}catch(e){}
  tMode='rest';tHoldN=0;tHoldOf=0;
  tExIdx=(exIdx==null||exIdx==='')?null:+exIdx;tAwaitStart=false;tEnd=Date.now()+Math.max(1,sec)*1000;
@@ -562,14 +573,14 @@ function startHold(sec,sides,exIdx){try{audio=audio||new (window.AudioContext||w
  tMode='side';tHoldSec=Math.max(1,parseInt(sec)||1);tHoldOf=sides>=2?2:1;tHoldN=1;
  tExIdx=(exIdx==null||exIdx==='')?null:+exIdx;tAwaitStart=false;tEnd=Date.now()+tHoldSec*1000;
  const el=document.getElementById('timer'),lab=document.getElementById('tLab');
- el.classList.remove('hidden','fin');if(lab)lab.textContent=tHoldOf===2?'Side 1 of 2':'Hold';setTimerActs('rest');
+ el.classList.remove('hidden','fin');if(lab)lab.textContent=tHoldOf===2?'Side 1 of 2':'Hold';setTimerActs('hold');
  clearInterval(tInt);tInt=setInterval(tick,250);tick();}
 function tick(){const el=document.getElementById('timer'),left=Math.round((tEnd-Date.now())/1000),lab=document.getElementById('tLab');
  if(left<=0){
   if(tMode==='side'&&tHoldN<tHoldOf){tHoldN++;tEnd=Date.now()+tHoldSec*1000;el.classList.remove('fin');if(lab)lab.textContent='Side '+tHoldN+' of '+tHoldOf;document.getElementById('tt').textContent=Math.floor(tHoldSec/60)+':'+String(tHoldSec%60).padStart(2,'0');if(navigator.vibrate)navigator.vibrate([180,80,180]);beep();if(view==='session')render();return;}
   if(tMode==='side'){const idx=tExIdx,e=idx!=null&&S.active&&S.active.exercises[idx];beep();if(e){swFreeze(e);startTimer(restSecFor(e),idx);if(view==='session')render();}else{stopTimer();toast('Both sides done');}return;}
-  if(tMode==='go'){const idx=tExIdx;clearInterval(tInt);tInt=null;tAwaitStart=false;tExIdx=null;tMode='rest';el.classList.add('hidden');el.classList.remove('fin');toneStart();if(navigator.vibrate)navigator.vibrate(280);if(idx!=null&&S.active&&S.active.exercises[idx]){beginSet(idx);save();if(view==='session')render();}return;}
-  if(tMode==='rest'&&tExIdx!=null){beep();if(navigator.vibrate)navigator.vibrate([400,150,400,150,400]);tMode='go';tAwaitStart=false;tEnd=Date.now()+5000;el.classList.add('fin');if(lab)lab.textContent='Next set';document.getElementById('tt').textContent='0:05';setTimerActs('go');if(view==='session')render();return;}
+  if(tMode==='go'){const idx=tExIdx;clearInterval(tInt);tInt=null;tAwaitStart=false;tExIdx=null;tMode='rest';el.classList.add('hidden');el.classList.remove('fin');toneStart();if(navigator.vibrate)navigator.vibrate(280);if(idx!=null&&S.active&&S.active.exercises[idx]){beginSet(idx);const e=S.active.exercises[idx],n=nextOpenSet(e);save();toast('Set '+(n>=0?n+1:e.sets.length)+' started');if(view==='session')render();}return;}
+  if(tMode==='rest'&&tExIdx!=null){armNextSet();return;}
   if(!el.classList.contains('fin')){el.classList.add('fin');tAwaitStart=false;clearInterval(tInt);tInt=null;setTimerActs('done');
    if(lab)lab.textContent='Rest done';
    document.getElementById('tt').textContent='Rest done!';
@@ -715,8 +726,8 @@ const A={
  tick:t=>{const i=+t.dataset.i,e=S.active.exercises[i],st=e.sets[+t.dataset.j],row=t.closest('.set');
   if(!st.done){const wi=row.querySelector('input[data-f="w"]'),ri=row.querySelector('input[data-f="r"]');if(wi&&wi.value.trim()!=='')st.w=wi.value.trim();else if(wi&&st.w===''&&wi.placeholder&&wi.placeholder!=='kg')st.w=wi.placeholder;if(ri&&ri.value.trim()!=='')st.r=ri.value.trim();else if(st.r===''&&ri&&ri.placeholder&&ri.placeholder!=='reps'&&ri.placeholder!=='sec')st.r=ri.placeholder;
    st.done=true;swFreeze(e); // end work for this set
-   const more=e.sets.some(x=>!x.done);
-   if(more)startTimer(restSecFor(e),i);else{stopTimer();toast('✓ '+e.name+' done');}
+   const more=e.sets.some(x=>!x.done),nxt=more?i:nextWorkIndex(i);
+   if(nxt>=0)startTimer(restSecFor(e),nxt);else{stopTimer();toast('✓ '+e.name+' done');}
   }else{st.done=false;if(tExIdx===i)stopTimer();}save();render();},
  tickC:t=>{const e=S.active.exercises[+t.dataset.i];if(!e.done&&!e.minutes)e.minutes=String(parseInt(e.target.reps)||20);e.done=!e.done;save();render();},
  pain:t=>{const e=S.active.exercises[+t.dataset.i];e.pain=Math.max(0,Math.min(10,(e.pain==null?0:e.pain)+ +t.dataset.d));save();render();},
@@ -825,6 +836,7 @@ const A={
  demoPause:t=>t.classList.toggle('paused'),
  tAdj:t=>{if(tAwaitStart||tMode==='go')return;tEnd=Math.max(Date.now()+1000,tEnd+ +t.dataset.d*1000);document.getElementById('timer').classList.remove('fin');tick();},
  tStop:()=>{stopTimer();if(view==='session')render();},
+ tReady:()=>{if(tMode==='rest'&&tExIdx!=null)armNextSet();},
  mealDay:t=>{mealDay=t.dataset.d;if(/^\d{4}-\d{2}-\d{2}$/.test(mealDay||'')&&mealMonth&&mealDay.slice(0,7)!==mealMonth)mealMonth=mealDay.slice(0,7);render();},
  mealMonth:t=>{const cur=mealMonth||mealDayKey().slice(0,7);const [y,m]=cur.split('-').map(Number);const d=new Date(Date.UTC(y,m-1+(+t.dataset.d||0),1));mealMonth=d.toISOString().slice(0,7);render();},
  mealToday:()=>{mealDay=todayKey();mealMonth=mealDay.slice(0,7);render();},
@@ -871,7 +883,7 @@ const A={
  favInfo:t=>favInfoModal(t.dataset.id)
 };
 function renderKeepOpen(){const open=[...document.querySelectorAll('details')].map(d=>d.open),y=scrollY;render();document.querySelectorAll('details').forEach((d,i)=>d.open=!!open[i]);scrollTo(0,y);}
-document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t)return;if(t.type==='checkbox'||t.type==='radio')return;const f=A[t.dataset.a];if(f){e.preventDefault();f(t,e);}});
+document.addEventListener('click',e=>{try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();}catch(err){}const t=e.target.closest('[data-a]');if(!t)return;if(t.type==='checkbox'||t.type==='radio')return;const f=A[t.dataset.a];if(f){e.preventDefault();f(t,e);}});
 document.addEventListener('input',e=>{const t=e.target,f=t.dataset.f;
  if(t.id==='phDate'){phForm.date=t.value;if(phForm.kg==null){const k=document.getElementById('phKg');if(k)k.value=bodyOn(t.value);}}else if(t.id==='phKg')phForm.kg=t.value;else if(t.id==='phNote')phForm.note=t.value;
  if(!f)return;
