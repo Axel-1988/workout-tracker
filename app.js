@@ -224,12 +224,38 @@ if(S._trapsAdd&&S.active&&Array.isArray(S.active.exercises)&&(S.active.planId===
  S.active.exercises.splice(a>=0?a:S.active.exercises.length,0,e);
 }
 delete S._chestAdd;delete S._frontDelt;delete S._trapsAdd;
+let bakTimer=null,_bdb=null;
 if(S._absMerged||S._deduped){delete S._absMerged;delete S._deduped;if(!loadBroken)save();}
 function save(){if(loadBroken){toast('Saved workouts couldn’t be read, so nothing was overwritten');return;}
  try{const prevRaw=localStorage.getItem(KEY);const prev=readStore(KEY);const next=JSON.stringify(S);
   if(prev&&dataScore(prev)>dataScore(S))localStorage.setItem(BAK,prevRaw);
   else if(dataScore(S)>0)localStorage.setItem(BAK,next);
-  localStorage.setItem(KEY,next);writeScanVault(S.scans);}catch(e){toast('⚠ Could not save: '+e.message)}}
+  localStorage.setItem(KEY,next);writeScanVault(S.scans);
+  if(dataScore(S)>0){clearTimeout(bakTimer);bakTimer=setTimeout(()=>{try{backupNow('auto');}catch(e){}},800);}
+ }catch(e){toast('⚠ Could not save: '+e.message)}}
+function backupDb(){return _bdb||(_bdb=new Promise((res,rej)=>{if(!window.indexedDB)return rej(new Error('no idb'));const r=indexedDB.open('workoutTrackerBackups',1);
+ r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('snaps'))d.createObjectStore('snaps',{keyPath:'id'});};
+ r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));}
+function snapReq(mode,fn){return backupDb().then(d=>new Promise((res,rej)=>{const t=d.transaction('snaps',mode);let out;const q=fn(t.objectStore('snaps'));if(q)q.onsuccess=()=>{out=q.result;};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error);}));}
+function backupNow(reason){if(typeof todayKey!=='function'||dataScore(S)<=0)return;const payload=clone(S);const at=Date.now();
+ const rec={id:'latest',at,day:todayKey(),reason:reason||'auto',score:dataScore(payload),data:payload};
+ snapReq('readwrite',s=>s.put(rec)).catch(()=>{});
+ if(reason==='workout'||reason==='morning'){snapReq('readwrite',s=>s.put(Object.assign({},rec,{id:reason+'-'+rec.day+'-'+at}))).then(()=>pruneSnaps()).catch(()=>{});}}
+function pruneSnaps(){return snapReq('readonly',s=>s.getAll()).then(all=>{const w=(all||[]).filter(x=>x&&String(x.id).indexOf('workout-')===0).sort((a,b)=>b.at-a.at);
+ const m=(all||[]).filter(x=>x&&String(x.id).indexOf('morning-')===0).sort((a,b)=>b.at-a.at);
+ const drop=w.slice(30).concat(m.slice(14));if(!drop.length)return;return snapReq('readwrite',s=>{drop.forEach(x=>s.delete(x.id));});}).catch(()=>{});}
+function downloadBackup(){try{const blob=new Blob([JSON.stringify(S)],{type:'application/json'});const a=document.createElement('a');
+ const hm=new Date().toLocaleTimeString('en-AU',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).replace(':','');
+ a.href=URL.createObjectURL(blob);a.download='workout-backup-'+todayKey()+'-'+hm+'.json';document.body.appendChild(a);a.click();
+ setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2500);}catch(e){toast('Backup file failed');}}
+function restoreFromBackup(){return snapReq('readonly',s=>s.getAll()).then(all=>{let best=null;(all||[]).forEach(s=>{if(s&&s.data&&(!best||dataScore(s.data)>dataScore(best.data)))best=s;});
+ if(!best||dataScore(best.data)<=dataScore(S))return false;S=normalize(best.data);loadBroken=false;save();
+ toast('Restored phone backup · '+S.sessions.length+' workouts',6000);return true;}).catch(()=>false);}
+function morningCheck(){restoreFromBackup().then(()=>{const today=todayKey();if(S.settings.lastMorningCheck===today)return;
+ S.settings.lastMorningCheck=today;save();
+ if(dataScore(S)>0){backupNow('morning');toast('Morning check: '+S.sessions.length+' workouts · '+mealDayCount()+' meal days still saved',5500);}
+ else toast('Morning check: nothing is saved in this app. Import a workout-backup file from Downloads if you have one.',7000);
+}).catch(()=>{});}
 if(!loadBroken)writeScanVault(S.scans);
 
 // ---- dates (Australia/Sydney) ----
@@ -340,8 +366,8 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6m</div>
- <div class="muted">Stored in this app icon: ${S.sessions.length} workout${S.sessions.length===1?'':'s'} · ${mealDayCount()} meal day${mealDayCount()===1?'':'s'}. Not saved to chat.</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6n</div>
+ <div class="muted">Stored in this app icon: ${S.sessions.length} workout${S.sessions.length===1?'':'s'} · ${mealDayCount()} meal day${mealDayCount()===1?'':'s'}.${S.settings.lastBackupAt?' Last workout backup '+fmtDate(S.settings.lastBackupAt)+'.':''} A backup file is saved when you finish a workout.</div>
  ${S.sessions.length||mealDayCount()?'':`<div class="hint warn">This copy of the app has no saved workouts or meals. Open the same home-screen icon you used before. A browser tab or a second shortcut does not share that data. Settings → Import if you downloaded a backup.</div>`}
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
  <div class="muted" style="margin-top:4px">${bi.deload?'Fewer sets (~⅔) · use ~90% of usual weights · recover hard.':'Main lifts stay; accessories rotate each new block.'} · ${fmtKeyShort(bi.start)}–${fmtKeyShort(bi.end)}</div>
@@ -374,7 +400,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6m</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6n</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -609,7 +635,7 @@ function vBody(){const b=S.body.slice().sort((a,c)=>a.date<c.date?-1:1),tk=today
 
 // ---- SETTINGS ----
 function vSettings(){const le=S.settings.lastExport;
- let h=`<h1>Settings</h1><h2>Backup</h2><div class="card"><div class="muted">Data lives only in this browser. Last export: ${le?fmtDate(le):'never'}. Export regularly!</div>
+ let h=`<h1>Settings</h1><h2>Backup</h2><div class="card"><div class="muted">Finishing a workout downloads a backup file and keeps another copy on the phone. Each morning the app checks that copy and restores it if the main save is empty. Last export: ${le?fmtDate(le):'never'}.</div>
   <button class="btn primary wide" data-a="export">⬇ Export data (.json)</button>
   <button class="btn wide" data-a="exportPh">⬇ Export data + photos &amp; scan images (.json, larger)</button>
   ${navigator.canShare?'<button class="btn wide" data-a="share">📤 Share backup (Files / AirDrop / email)</button>':''}
@@ -729,7 +755,7 @@ const A={
  finish:()=>{flushSetInputs();const s=S.active,n=s.exercises.reduce((a,e)=>a+(e.cardio?(e.done?1:0):doneSets(e).length),0);
   if(!n&&!confirm('No sets ticked done. Save anyway?'))return;s.end=Date.now();
   s.exercises.forEach(e=>{swFreeze(e);delete e._showNote;delete e._swOn;delete e._swT0;if(!e.durationSec)delete e.durationSec;});
-  S.sessions.push(s);S.active=null;save();stopTimer();stopClock();wake(false);toast('✓ Session saved');go('detail',s.id);},
+  S.sessions.push(s);S.active=null;S.settings.lastBackupAt=Date.now();save();downloadBackup();backupNow('workout');stopTimer();stopClock();wake(false);toast('✓ Session saved · backup downloaded');go('detail',s.id);},
  detail:t=>go('detail',t.dataset.id),
  prog:t=>{progEx=t.dataset.n;go('history');},
  delSession:t=>{if(confirm('Delete this session permanently?')){S.sessions=S.sessions.filter(s=>s.id!==t.dataset.id);save();go('history');}},
@@ -1991,5 +2017,6 @@ function makeIcon(sz){try{const c=document.createElement('canvas');c.width=c.hei
  const mf=document.getElementById('mf');if(mf&&/^https?:/.test(base))mf.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(m));})();
 
 if(document.getElementById('app')){if(S.active)view='session';render();}
+setTimeout(morningCheck,400);
 window.WTRender=function(){if(document.getElementById('app'))render();};
 try{window.dispatchEvent(new Event('wt-ready'));}catch(e){}
