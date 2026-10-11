@@ -373,7 +373,7 @@ function go(v,arg){view=v;viewArg=arg;render();window.scrollTo(0,0);}
 function render(){const V={home:vHome,session:vSession,history:vHistory,detail:vDetail,body:vBody,settings:vSettings,mobility:vMobility,photos:vPhotos,meals:vMeals}[view]||vHome;
  document.getElementById('app').innerHTML=V();renderNav();
  const sug=document.getElementById('sugBox');if(sug)sug.addEventListener('toggle',()=>{sugOpen=sug.open;});
- const yf=document.getElementById('yfBox');if(yf)yf.addEventListener('toggle',()=>{yfOpen=yf.open;});if(view==='photos')hydrateFull();if(view==='session'&&S.active){ensureClock();tickClocks();}else stopClock();}
+ const yf=document.getElementById('yfBox');if(yf)yf.addEventListener('toggle',()=>{yfOpen=yf.open;});const yl=document.getElementById('yfLibBox');if(yl)yl.addEventListener('toggle',()=>{yfLibOpen=yl.open;});if(view==='photos')hydrateFull();if(view==='session'&&S.active){ensureClock();tickClocks();}else stopClock();}
 function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘','Mobility'],['photos','📸','Photos'],['body','⚖️','Body'],['meals','🍽️','Meals'],['history','📈','History']];
  const cur={home:'train',session:'train',settings:'train',detail:'history'}[view]||view;
  document.getElementById('nav').innerHTML=tabs.map(([v,i,l])=>`<button data-a="nav" data-v="${v}" class="${cur===v?'on':''} ${v==='train'&&S.active&&view!=='session'?'live':''}"><span>${i}</span>${v==='train'&&S.active?'● Train':l}</button>`).join('');}
@@ -381,7 +381,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6p · rest beeps, then the next set starts itself</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6q · rest beeps, then the next set starts itself</div>
  <div class="muted">Stored in this app icon: ${S.sessions.length} workout${S.sessions.length===1?'':'s'} · ${mealDayCount()} meal day${mealDayCount()===1?'':'s'}.${S.settings.lastBackupAt?' Last workout backup '+fmtDate(S.settings.lastBackupAt)+'.':''} A backup file is saved when you finish a workout.</div>
  ${S.sessions.length||mealDayCount()?'':`<div class="hint warn">This copy of the app has no saved workouts or meals. Open the same home-screen icon you used before. A browser tab or a second shortcut does not share that data. Settings → Import if you downloaded a backup.</div>`}
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
@@ -415,7 +415,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6p</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6q</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -844,12 +844,7 @@ const A={
  goal:t=>{const got=writeGoal(t.dataset.v);if(!got){toast('Could not set that goal');return;}save();render();toast(got.label+' · '+got.kcal+' kcal');},
  mealSlot:t=>{mealSlot=t.dataset.v;render();},
  yfEat:t=>toggleYoufoodz(t.dataset.id,t.checked),
- yfPastAdd:t=>{
-  ensureMeals();const it=(S.meals.yfPast||[]).find(x=>x.id===t.dataset.id);if(!it){toast('Meal missing');return;}
-  const day=mealDayKey(),slot=currentSlot();
-  dayLog(day).push({name:it.name,kcal:n0(it.kcal),protein:n0(it.protein),carbs:it.carbs==null?null:n0(it.carbs),fat:it.fat==null?null:n0(it.fat),slot,source:'youfoodz',yfId:it.id,at:Date.now()});
-  save();toast('✓ '+it.name+' → '+slotName(slot)+' · '+fmtKeyShort(day));render();
- },
+ yfPastAdd:t=>{ensureMeals();const it=(S.meals.yfPast||[]).find(x=>x.id===t.dataset.id);if(!it){toast('Meal missing');return;}yfLibLog(yfMealKey(it));},
  mealEat:t=>togglePlanItem(t.dataset.d,t.dataset.id,t.checked),
  mealRecipe:t=>mealRecipeModal(t.dataset.kind,t.dataset.id,t.dataset.d),
  bcScan:()=>openBarcodeScanner(),
@@ -875,12 +870,14 @@ const A={
  foodLibOk:()=>{const mult=n0((document.getElementById('fMult')||{}).value)||1;
   const food={name:(document.getElementById('fBaseName')||{}).value,kcal:n0((document.getElementById('fBaseK')||{}).value)*mult,protein:n0((document.getElementById('fBaseP')||{}).value)*mult,carbs:n0((document.getElementById('fBaseC')||{}).value)*mult,fat:(document.getElementById('fBaseF')||{}).value===''?null:n0((document.getElementById('fBaseF')||{}).value)*mult,barcode:(document.getElementById('bcCode')||{}).value||null,source:'library'};
   closeModal();addFoodToLog(food);},
- foodLogDel:t=>{ensureMeals();const L=dayLog(t.dataset.d);L.splice(+t.dataset.i,1);save();render();},
+ foodLogDel:t=>{ensureMeals();const L=dayLog(t.dataset.d);const gone=L.splice(+t.dataset.i,1)[0];if(gone&&gone.yfId)yfResyncTick(gone.yfId);save();render();},
  favQuickAdd:t=>{ensureMeals();const id=t.dataset.id;const f=S.meals.library[id]||favById(id);if(!f){toast('Favourite missing');return;}
   closeModal();
   addFoodToLog({name:f.short||f.label||f.name,kcal:f.kcal,protein:f.protein,carbs:f.carbs,fat:f.fat,barcode:f.barcode||id,source:'favourite'},
    '✓ '+(f.short||f.label||'Favourite')+' · 1 serve');},
- favInfo:t=>favInfoModal(t.dataset.id)
+ favInfo:t=>favInfoModal(t.dataset.id),
+ yfLibAdd:t=>{closeModal();yfLibLog(t.dataset.k);},
+ yfLibInfo:t=>yfLibInfoModal(t.dataset.k)
 };
 function renderKeepOpen(){const open=[...document.querySelectorAll('details')].map(d=>d.open),y=scrollY;render();document.querySelectorAll('details').forEach((d,i)=>d.open=!!open[i]);scrollTo(0,y);}
 document.addEventListener('click',e=>{try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();}catch(err){}const t=e.target.closest('[data-a]');if(!t)return;if(t.type==='checkbox'||t.type==='radio')return;const f=A[t.dataset.a];if(f){e.preventDefault();f(t,e);}});
@@ -1286,7 +1283,8 @@ function evoltKcalOf(sc){return kcalForGoal((S.meals&&S.meals.targets&&S.meals.t
  * Home plan days are flexible suggestions only.
  */
 const YF_BASE='https://www.youfoodz.com/my-deliveries/2026-W40';
-const YF_ITEMS=[
+/* W40 — delivered Wed 30 Sep 2026. Kept so phones still on W40 move their ticks into the log when a newer box takes over. */
+const YF_W40_ITEMS=[
  {id:'yf-butter',name:'Butter Chicken — with Naan & Brown Rice',kcal:871,protein:40.9,carbs:90.7,fat:36.4,
   allergens:'milk, gluten, wheat',
   ingredients:'brown rice (32%), coconut cream (22%), chicken (21%), naan bread (8%), water, sweet chilli sauce, marinade, garlic, milk powder, tomato paste, vegetable booster, curry powder, sweet paprika, modified starch, butter, vinegar powder, cumin, coriander, vinegar/cultured sugar',
@@ -1325,8 +1323,83 @@ const YF_ITEMS=[
   flag:'Contains pork (ham)',
   url:YF_BASE+'?recipeId=6a0ff25bdea7c5717bde6733&week=2026-W40'}
 ];
-/* Upcoming W41 (Wed 7 Oct) — not primary UI; Monday sync / next delivery will replace. See MEAL-PLAN-W41.md */
-const YF_W41_NOTE='Next delivery Wed 7 Oct 2026 (W41) — app will switch on sync; data kept in MEAL-PLAN-W41.md';
+const YF_ITEMS=YF_W40_ITEMS; // old name, kept for anything that still refers to it
+/* W41 — delivered Wed 7 Oct 2026 (synced from Youfoodz My Deliveries on Mon 5 Oct). */
+const YF_W41_URL='https://www.youfoodz.com/my-deliveries/2026-W41';
+const YF_W41_ITEMS=[
+ {id:'w41-alfredo',name:'Creamy Chicken Alfredo',kcal:626,protein:40.7,carbs:59.8,fat:23.6,
+  ingredients:'cheese tortellini, chicken, cream, Parmesan, mushrooms',
+  note:'Creamy tortellini with chicken and mushrooms.',url:YF_W41_URL},
+ {id:'w41-portuguese',name:'Portuguese Chicken & Rice — with Paprika & Turmeric Spice',kcal:718,protein:44.9,carbs:86.5,fat:19.9,
+  allergens:'milk, sulphites',
+  ingredients:'basmati rice, chicken, thickened cream, corn, tomato sauce, sweet chilli, sriracha, smoked paprika, garlic, turmeric',
+  note:'Paprika & turmeric spiced chicken with rice.',flag:'Contains tomato sauce',url:YF_W41_URL},
+ {id:'w41-carbonara',name:'Chicken Carbonara — with Ham & Mushrooms',kcal:542,protein:41,carbs:54.4,fat:16.2,
+  allergens:'milk, gluten, wheat, egg',
+  ingredients:'fettuccine, chicken, ham, mushrooms, cream, Parmesan',
+  note:'Contains pork (ham).',flag:'Contains pork (ham)',url:YF_W41_URL},
+ {id:'w41-sliced-1',name:'Sliced Chicken Breast (Double Up) — pack 1 of 2',kcal:224,protein:42.9,carbs:3.2,fat:3.7,
+  ingredients:'chicken breast, spices (200g serve)',
+  note:'Plain sliced chicken — great add-on to a home meal or a high-protein snack.',url:YF_W41_URL},
+ {id:'w41-sliced-2',name:'Sliced Chicken Breast (Double Up) — pack 2 of 2',kcal:224,protein:42.9,carbs:3.2,fat:3.7,
+  ingredients:'chicken breast, spices (200g serve)',
+  note:'Plain sliced chicken — great add-on to a home meal or a high-protein snack.',url:YF_W41_URL},
+ {id:'w41-penne',name:'Chicken & Spinach Penne',kcal:515,protein:41.5,carbs:47.2,fat:16.8,
+  ingredients:'chicken, penne, cream, Parmesan, spinach',
+  note:'Creamy chicken and spinach pasta.',url:YF_W41_URL},
+ {id:'w41-mushroom',name:'Creamy Mushroom Chicken',kcal:295,protein:21.1,carbs:28.3,fat:8.9,
+  ingredients:'chicken, sweet potato, broccoli, peas, mushrooms',
+  note:'Lighter meal (only ~21g protein) — pair with a shake or Greek yoghurt. Sweet potato, not mash.',url:YF_W41_URL}
+];
+/* W42 — delivery Wed 14 Oct 2026, Cecil Park 2178. Meal list from the My Deliveries check on 5 Oct (provisional until the box
+ * is confirmed); macros for the two new meals from youfoodz.com recipe pages (Smokey BBQ = 300g regular, Burrito Bowl = FUEL'D chicken). */
+const YF_W42_URL='https://www.youfoodz.com/my-deliveries/2026-W42';
+const YF_W42_ITEMS=[
+ {id:'w42-bbq',name:'Smokey BBQ Chicken — with Potato Salad',kcal:612,protein:31.9,carbs:31.9,fat:39.3,
+  allergens:'egg, sulphites, milk, soy',
+  ingredients:'potato (37%), chicken (32%), mayonnaise, hickory BBQ sauce, lemon juice, brown sugar, tomato paste, gravy powder, honey, Cajun seasoning, sriracha, chives, Dijon, garlic, butter, paprika',
+  note:'Chargrilled paprika chicken with creamy chive potato salad (not mash) and BBQ sauce. Only a little tomato paste in the BBQ sauce.',
+  flag:'Contains tomato paste (BBQ sauce)',url:YF_W42_URL},
+ {id:'w42-burrito',name:'Mexican Chicken Burrito Bowl',kcal:484,protein:42,carbs:50.2,fat:10.7,
+  allergens:'gluten, wheat, milk',
+  ingredients:'chicken (31%), basmati rice (23%), corn, black beans (10%), sour cream sachet, capsicum, onion, taco seasoning, cabbage, garlic, chia seeds, paprika, thyme, coriander',
+  note:'Chicken, coriander rice, black beans and sour cream. No tomato listed.',url:YF_W42_URL},
+ {id:'w42-alfredo',name:'Creamy Chicken Alfredo',kcal:626,protein:40.7,carbs:59.8,fat:23.6,
+  ingredients:'cheese tortellini, chicken, cream, Parmesan, mushrooms',
+  note:'Creamy tortellini with chicken and mushrooms.',url:YF_W42_URL},
+ {id:'w42-portuguese',name:'Portuguese Chicken & Rice — with Paprika & Turmeric Spice',kcal:718,protein:44.9,carbs:86.5,fat:19.9,
+  allergens:'milk, sulphites',
+  ingredients:'basmati rice, chicken, thickened cream, corn, tomato sauce, sweet chilli, sriracha, smoked paprika, garlic, turmeric',
+  note:'Paprika & turmeric spiced chicken with rice.',flag:'Contains tomato sauce',url:YF_W42_URL},
+ {id:'w42-carbonara',name:'Chicken Carbonara — with Ham & Mushrooms',kcal:542,protein:41,carbs:54.4,fat:16.2,
+  allergens:'milk, gluten, wheat, egg',
+  ingredients:'fettuccine, chicken, ham, mushrooms, cream, Parmesan',
+  note:'Contains pork (ham).',flag:'Contains pork (ham)',url:YF_W42_URL},
+ {id:'w42-bolognese',name:'Spaghetti Bolognese — with Classic Beef Ragu',kcal:626,protein:40.7,carbs:76.9,fat:15.7,
+  allergens:'gluten, wheat, milk (may contain)',
+  ingredients:'spaghetti, beef ragu (crushed tomato, tomato paste, beef mince, onion, garlic, herbs), cheese',
+  note:'Classic beef ragu — tomato-heavy.',flag:'Tomato-heavy (crushed tomato, tomato paste)',url:YF_W42_URL}
+];
+/* Weekly Youfoodz boxes, oldest → newest. The Monday sync APPENDS the next box here (never edit an old week's ids).
+ * Item ids are per box ('w42-carbonara'); a meal seen in several boxes keeps the same name so "My Youfoodz meals"
+ * shows it once. The app switches to a box automatically on its delivery date (Sydney time): the previous box's
+ * ticked meals stay in the day log (macros kept) and its uneaten, undamaged meals carry over once as "left from Wxx".
+ * A future box (date after today) stays hidden until delivery day, so it is safe to add it early. */
+const YF_DELIVERIES=[
+ {week:'2026-W40',date:'2026-09-30',area:'Cecil Park 2178',status:'Delivered',items:YF_W40_ITEMS},
+ {week:'2026-W41',date:'2026-10-07',area:'Cecil Park 2178',status:'Delivered',items:YF_W41_ITEMS},
+ {week:'2026-W42',date:'2026-10-14',area:'Cecil Park 2178',status:'',items:YF_W42_ITEMS}
+];
+/* Shown when no later box is in YF_DELIVERIES yet, only before `until`. Update with the Monday sync. */
+const YF_NEXT={until:'2026-10-22',text:'Next box Wed 21 Oct (W43) — its meals get added with the Monday sync.'};
+function yfSeedDelivery(today){const t=today||todayKey();let cur=YF_DELIVERIES[0];YF_DELIVERIES.forEach(d=>{if(d.date<=t&&String(d.week)>=String(cur.week))cur=d;});return cur;}
+function yfPrevWeek(week){let p=null;YF_DELIVERIES.forEach(d=>{if(String(d.week)<String(week)&&(!p||String(d.week)>p))p=String(d.week);});return p;}
+function yfNextNote(today){const t=today||todayKey(),up=YF_DELIVERIES.find(d=>d.date>t);
+ if(up)return 'Next box '+fmtKeyDate(up.date)+' ('+up.week.replace(/^\d{4}-/,'')+') — this list switches to it automatically that day.';
+ return t<YF_NEXT.until?YF_NEXT.text:'';}
+/* Home-suggestion plan weeks that exist in defaultMeals (Mondays). The latest one that has started is current. */
+const PLAN_WEEKS=['2026-09-28','2026-10-05','2026-10-12'];
+function planWeekFor(today){const t=today||todayKey();let w=PLAN_WEEKS[0];PLAN_WEEKS.forEach(k=>{if(k<=t)w=k;});return w;}
 
 function mkPlanItem(id,name,slot,kcal,protein,carbs,source,extra){
  const o={id,name,slot,kcal,protein,carbs:carbs==null?null:carbs,source:source||'home',eaten:false};
@@ -1501,14 +1574,39 @@ function defaultMeals(){
   mkPlanItem('m04-sw','Protein pudding','snack',160,25,8,'home',Object.assign({fat:3},R('Protein pudding','','milk',''))),
   mkPlanItem('m04-tr','Treat allowance (~180 kcal)','treat',180,1,20,'home',Object.assign({fat:8},R('~180 kcal','Optional','','')))
  ]};
+ // Later plan weeks: same home suggestions as the 28 Sep week (fresh ids per week), new notes. Youfoodz stay a separate checklist.
+ const shiftWeek=(prefix,back,notes)=>Object.keys(notes).forEach(k=>{
+  const src=days[keyAdd(k,-back)];if(!src)return;
+  days[k]={notes:notes[k],items:src.items.map(it=>Object.assign(clone(it),{id:prefix+it.id,eaten:false}))};
+ });
+ // W41 plan week Mon 5 – Sun 11 Oct
+ shiftWeek('w41-',7,{
+  '2026-10-05':'Work 12–9 · late dinner. W41 Youfoodz arrive Wed — use up any W40 leftovers first.',
+  '2026-10-06':'Work 8–6. Pack a leftover W40 Youfoodz for work if you still have one.',
+  '2026-10-07':'OFF · W41 Youfoodz delivery today (Cecil Park). Tick them on the checklist when you eat them.',
+  '2026-10-08':'Work 12–9. Easy post-9pm heat-up: tick a Youfoodz (Alfredo, Penne, Carbonara).',
+  '2026-10-09':'Work 8–6. Take a Youfoodz to work — Sliced Chicken packs make a quick protein top-up.',
+  '2026-10-10':'OFF · training day · higher carbs around training.',
+  '2026-10-11':'OFF · finish remaining Youfoodz before next Wed delivery.'
+ });
+ // W42 plan week Mon 12 – Sun 18 Oct (built from the 28 Sep week so ids stay short: w42-m28-bf …)
+ shiftWeek('w42-',14,{
+  '2026-10-12':'Work 12–9 · late dinner. W42 Youfoodz arrive Wed — use up W41 meals first (Alfredo, Penne, Carbonara, Sliced Chicken).',
+  '2026-10-13':'Work 8–6. Take a W41 Youfoodz to work if you still have one.',
+  '2026-10-14':'OFF · W42 Youfoodz delivery today (Cecil Park). Uneaten W41 meals show as "left from W41" — tick them when you eat them.',
+  '2026-10-15':'Work 12–9. Easy post-9pm heat-up: tick a Youfoodz (Burrito Bowl, Alfredo, Carbonara).',
+  '2026-10-16':'Work 8–6. Take a Youfoodz to work — Burrito Bowl or Smokey BBQ Chicken travel well.',
+  '2026-10-17':'OFF · training day · higher carbs around training.',
+  '2026-10-18':'OFF · finish remaining Youfoodz before next Wed delivery (21 Oct).'
+ });
  const lib={};const favIds=[];
  MEAL_FAVOURITES.forEach(f=>{lib[f.id]=favToLibraryEntry(f);favIds.push(f.id);});
  return {
-  delivery:{
-   week:'2026-W40',date:'2026-09-30',area:'Cecil Park 2178',status:'Delivered',source:'seed',
-   items:YF_ITEMS.map(x=>Object.assign({eaten:false},x))
-  },
-  planWeekStart:'2026-09-28',
+  delivery:(()=>{const sd=yfSeedDelivery();return {
+   week:sd.week,date:sd.date,area:sd.area,status:sd.status,source:'seed',
+   items:sd.items.map(x=>Object.assign({eaten:false},clone(x)))
+  };})(),
+  planWeekStart:planWeekFor(),
   days,
   targets:Object.assign({},MEAL_TARGETS),
   log:{},
@@ -1519,71 +1617,93 @@ function defaultMeals(){
 function yfSnap(it,week){return {id:it.id,name:it.name,kcal:it.kcal,protein:it.protein,carbs:it.carbs!=null?it.carbs:null,fat:it.fat!=null?it.fat:null,allergens:it.allergens||'',ingredients:it.ingredients||'',note:it.note||'',flag:it.flag||'',url:it.url||'',week:week||it.week||''};}
 function rememberYf(items,week){if(!S.meals)return;if(!Array.isArray(S.meals.yfPast))S.meals.yfPast=[];
  const by={};S.meals.yfPast.forEach(i=>{if(i&&i.id)by[i.id]=i;});
- (items||[]).forEach(it=>{if(!it||!it.id||it.damaged)return;by[it.id]=Object.assign({},by[it.id]||{},yfSnap(it,week));});
+ (items||[]).forEach(it=>{if(!it||!it.id||it.damaged||it.leftover)return;by[it.id]=Object.assign({},by[it.id]||{},yfSnap(it,week));});
  S.meals.yfPast=Object.keys(by).map(id=>by[id]);}
-function parkEatenYf(it){if(!it||it.parked||!it.eaten||it.damaged||!/^\d{4}-\d{2}-\d{2}$/.test(it.eatenOn||''))return;
+/** Box tick → day log (once). Dedupes on yfId, so re-running never doubles an entry. */
+function parkEatenYf(it){if(!it||it.parked||!it.eaten||it.damaged||!/^\d{4}-\d{2}-\d{2}$/.test(it.eatenOn||''))return false;
  if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
  if(!Array.isArray(S.meals.log[it.eatenOn]))S.meals.log[it.eatenOn]=[];
  const log=S.meals.log[it.eatenOn];if(!log.some(x=>x&&x.yfId===it.id))log.push({name:it.name,kcal:n0(it.kcal),protein:n0(it.protein),carbs:it.carbs==null?null:n0(it.carbs),fat:it.fat==null?null:n0(it.fat),slot:it.slot||'lunch',source:'youfoodz',yfId:it.id,at:Date.now()});
- it.parked=1;}
+ it.parked=1;return true;}
+/** Phones that ran the 8 Oct build archived old-box ticks as 'yfa-<week>-<itemId>' log rows (no yfId). Give them a yfId,
+ * and drop the copy if the same meal was parked again on the same day after the rollback (no double counting). */
+function yfFixArchived(){let ch=false;const L=S.meals.log||{};
+ Object.keys(L).forEach(day=>{const arr=L[day];if(!Array.isArray(arr))return;
+  for(let i=arr.length-1;i>=0;i--){const r=arr[i];const m=r&&!r.yfId&&typeof r.id==='string'&&/^yfa-(\d{4}-W\d{2})-(.+)$/.exec(r.id);if(!m)continue;
+   if(arr.some((x,j)=>j!==i&&x&&x.yfId===m[2]))arr.splice(i,1);else{r.yfId=m[2];r.source='youfoodz';}ch=true;}
+ });return ch;}
+/** Days (sorted) that have a log row for this box item. */
+function yfLogDays(id){const days=[];Object.keys(S.meals.log||{}).sort().forEach(d=>{const a=S.meals.log[d];if(Array.isArray(a)&&a.some(x=>x&&x.yfId===id))days.push(d);});return days;}
+/** Keep a current-box item's eaten flag in line with the log (after a log row is deleted, or logged from the old list). */
+function yfResyncTick(id){const it=((S.meals.delivery&&S.meals.delivery.items)||[]).find(x=>x&&x.id===id);if(!it||it.damaged)return false;
+ const days=yfLogDays(id).filter(d=>!S.meals.delivery.date||d>=S.meals.delivery.date||it.leftover||it.eatenOn===d);
+ const was=!!it.eaten+'|'+(it.eatenOn||'');
+ if(days.length){it.eaten=true;it.eatenOn=days[days.length-1];it.parked=1;}
+ else if(it.parked){it.eaten=false;it.eatenOn=null;it.slot=null;}
+ return was!==(!!it.eaten+'|'+(it.eatenOn||''));}
+let _emFor=null,_emDay=null;
 function ensureMeals(){
- if(!S.meals||typeof S.meals!=='object'){S.meals=defaultMeals();return S.meals;}
- const d=defaultMeals();
+ if(!S.meals||typeof S.meals!=='object')S.meals=defaultMeals();
+ const today=todayKey();
+ if(_emFor===S.meals&&_emDay===today&&S.meals.delivery&&Array.isArray(S.meals.delivery.items))return S.meals; // already reconciled today
+ const d=defaultMeals();let switched=false;
+ if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
  if(!Array.isArray(S.meals.yfPast))S.meals.yfPast=[];
- if(!S.meals.delivery||!Array.isArray(S.meals.delivery.items)||!S.meals.delivery.week){
-  S.meals.delivery=clone(d.delivery);
- }else if(S.meals.delivery.week===d.delivery.week){
-  const oldItems=S.meals.delivery.items||[],byId={};
+ if(yfFixArchived())switched=true;
+ // Youfoodz box: the seed (latest box whose delivery date has arrived, Sydney) is the source of truth.
+ const sd=d.delivery,cur=S.meals.delivery;
+ if(!cur||!Array.isArray(cur.items)||!cur.week){
+  S.meals.delivery=clone(sd);switched=true;
+ }else if(cur.week===sd.week){
+  // Same box: seed wins for macros/recipe/damaged, ticks are kept, carried-over leftovers are kept.
+  const oldItems=cur.items,byId={};
   oldItems.forEach(i=>{if(i&&i.id)byId[i.id]=i;});
-  const seedIds=new Set(d.delivery.items.map(i=>i.id));
-  const dropped=oldItems.filter(i=>i&&i.id&&!seedIds.has(i.id));
-  dropped.forEach(parkEatenYf);rememberYf(dropped,S.meals.delivery.week);
-  S.meals.delivery=Object.assign({},d.delivery,S.meals.delivery,{
-   week:d.delivery.week,date:d.delivery.date,area:d.delivery.area||S.meals.delivery.area,
-   status:d.delivery.status||S.meals.delivery.status,source:S.meals.delivery.source||'seed'
+  const seedIds=new Set(sd.items.map(i=>i.id));
+  const dropped=oldItems.filter(i=>i&&i.id&&!seedIds.has(i.id)&&!i.leftover);
+  dropped.forEach(parkEatenYf);rememberYf(dropped,cur.week);
+  const keep=oldItems.filter(i=>i&&i.leftover);
+  S.meals.delivery=Object.assign({},sd,cur,{
+   week:sd.week,date:sd.date,area:sd.area||cur.area,
+   status:sd.status||cur.status,source:cur.source||'seed'
   });
-  S.meals.delivery.items=d.delivery.items.map(def=>{
+  S.meals.delivery.items=sd.items.map(def=>{
    const prev=byId[def.id];
    if(!prev)return clone(def);
    return Object.assign({},def,{eaten:!!prev.eaten,eatenOn:prev.eatenOn||def.eatenOn||null,slot:prev.slot||def.slot||null,parked:prev.parked?1:0});
-  });
+  }).concat(keep);
+ }else if(String(cur.week)>String(sd.week)){
+  // Stored box is newer (manual load / phone clock behind): keep it — never roll a phone back to an older week.
+  cur.items=cur.items.map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten}));
+  const ids=new Set(cur.items.map(i=>i&&i.id));
+  rememberYf(sd.items.filter(i=>i&&!ids.has(i.id)),sd.week);
  }else{
-  const old=S.meals.delivery;
-  (old.items||[]).forEach(parkEatenYf);rememberYf(old.items,old.week);
-  const manualFuture=old.source==='manual'&&String(old.week)>String(d.delivery.week);
-  if(manualFuture){
-   S.meals.delivery.items=(old.items||[]).map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten}));
-   const ids=new Set((S.meals.delivery.items||[]).map(i=>i&&i.id));
-   rememberYf(d.delivery.items.filter(i=>i&&!ids.has(i.id)),d.delivery.week);
-  }else S.meals.delivery=clone(d.delivery);
+  // Older stored box (e.g. W40 after the 8 Oct rollback, or W41 on delivery day of W42): ticks → log, uneaten carry over once.
+  cur.items.forEach(parkEatenYf);rememberYf(cur.items,cur.week);
+  const logged=new Set();Object.keys(S.meals.log).forEach(day=>{const a=S.meals.log[day];if(Array.isArray(a))a.forEach(r=>{if(r&&r.yfId)logged.add(r.yfId);});});
+  const wk=String(cur.week||''),short=wk.replace(/^\d{4}-/,'')||'last box';
+  const carry=yfPrevWeek(sd.week)===wk?cur.items.filter(it=>it&&it.id&&!it.eaten&&!it.damaged&&!it.leftover&&!logged.has(it.id)).map(it=>Object.assign(clone(it),{
+   id:'lo-'+wk+'-'+it.id,name:yfBaseName(it.name)+' (left from '+short+')',leftover:true,fromWeek:wk,eaten:false,eatenOn:null,slot:null,parked:0})):[];
+  S.meals.delivery=clone(sd);
+  S.meals.delivery.items=S.meals.delivery.items.concat(carry);
+  switched=true;
  }
- (S.meals.delivery.items||[]).forEach(parkEatenYf);
- // Plan week: force to seed when different (W41 week → W40 week)
- if(S.meals.planWeekStart!==d.planWeekStart){
-  S.meals.planWeekStart=d.planWeekStart;
-  if(!S.meals.days||typeof S.meals.days!=='object')S.meals.days={};
-  Object.keys(d.days).forEach(k=>{S.meals.days[k]=clone(d.days[k]);});
- }else if(!S.meals.days||typeof S.meals.days!=='object'){
-  S.meals.days=d.days;
- }else{
-  Object.keys(d.days).forEach(k=>{
-   if(!S.meals.days[k])S.meals.days[k]=clone(d.days[k]);
-   else{
-    const byId={};(S.meals.days[k].items||[]).forEach(i=>{if(i&&i.id)byId[i.id]=i;});
-    S.meals.days[k]={
-     notes:(S.meals.days[k].notes!=null&&S.meals.days[k].notes!=='')?S.meals.days[k].notes:d.days[k].notes,
-     items:d.days[k].items.map(def=>{
-      const prev=byId[def.id];
-      return prev?Object.assign({},def,{eaten:!!prev.eaten}):clone(def);
-     })
-    };
-   }
-  });
- }
+ (S.meals.delivery.items||[]).forEach(it=>{if(parkEatenYf(it))switched=true;if(yfResyncTick(it.id))switched=true;});
+ // Plan week follows the date; merge ticks by id so no day loses what was ticked.
+ if(S.meals.planWeekStart!==d.planWeekStart)switched=true;
+ S.meals.planWeekStart=d.planWeekStart;
+ if(!S.meals.days||typeof S.meals.days!=='object'||Array.isArray(S.meals.days))S.meals.days={};
+ Object.keys(d.days).forEach(k=>{
+  const old=S.meals.days[k];
+  if(!old||!Array.isArray(old.items)){S.meals.days[k]=clone(d.days[k]);return;}
+  const byId={};old.items.forEach(i=>{if(i&&i.id)byId[i.id]=i;});
+  S.meals.days[k]={
+   notes:(old.notes!=null&&old.notes!=='')?old.notes:d.days[k].notes,
+   items:d.days[k].items.map(def=>{const prev=byId[def.id];return prev?Object.assign({},def,{eaten:!!prev.eaten}):clone(def);})
+  };
+ });
  S.meals.targets=Object.assign({},MEAL_TARGETS,S.meals.targets||{});
  if(!S.meals.targets.goal)S.meals.targets.goal='maintain';
  if(!S.meals.targets.kcalManual){const got=kcalForGoal(S.meals.targets.goal);if(got){S.meals.targets.kcal=got.kcal;S.meals.targets.kcalNote=got.note;}}
- if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
  if(!S.meals.library||typeof S.meals.library!=='object'||Array.isArray(S.meals.library))S.meals.library={};
  if(!Array.isArray(S.meals.favourites))S.meals.favourites=[];
  // Seed / refresh known favourites in library + favourites list (user can add more later)
@@ -1591,9 +1711,79 @@ function ensureMeals(){
   S.meals.library[f.id]=Object.assign({},S.meals.library[f.id]||{},favToLibraryEntry(f));
   if(!S.meals.favourites.includes(f.id))S.meals.favourites.push(f.id);
  });
+ if(syncYfLib())switched=true;
+ _emFor=S.meals;_emDay=today;
+ if(switched&&!loadBroken)save();
  return S.meals;
 }
-let mealDay=null,mealMonth=null,mealTab='plan',mealSlot=null,sugOpen=false,yfOpen=false; // plan | log
+/* ---- My Youfoodz meals: one list of every Youfoodz meal you've had (all delivered boxes + anything logged as Youfoodz) ---- */
+function yfBaseName(n){let s=String(n||'').trim(),p;do{p=s;s=s.replace(/\s*\(Youfoodz\)\s*$/i,'').replace(/\s*\(left from [^)]*\)\s*$/i,'').replace(/\s*[—–-]\s*pack \d+ of \d+\s*$/i,'').trim();}while(s!==p);return s;}
+/** Same meal in different boxes → same key (subtitle after " — " ignored, e.g. "Chicken Carbonara — with Ham" = "Chicken Carbonara"). */
+function yfKey(n){return yfBaseName(n).replace(/\s+[—–]\s+.*$/,'').toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9()]+/g,' ').trim();}
+function yfMealKey(it){return yfKey(it&&it.name);}
+function isYfLog(x){return !!x&&(x.source==='youfoodz'||/\(Youfoodz\)\s*$/i.test(x.name||''));}
+/** Add any Youfoodz meal not yet in S.meals.yfLib (newest box wins for macros). Never removes. True when something changed. */
+function syncYfLib(){
+ if(!S.meals.yfLib||typeof S.meals.yfLib!=='object'||Array.isArray(S.meals.yfLib))S.meals.yfLib={};
+ const L=S.meals.yfLib,t=todayKey();let ch=false;
+ // Re-key entries saved by the 8 Oct build (key included the " — with …" subtitle) so a meal is listed once.
+ Object.keys(L).forEach(k=>{const e=L[k];if(!e||!e.name){delete L[k];ch=true;return;}const nk=yfKey(e.name);if(nk===k)return;
+  const o=L[nk];if(o){o.weeks=[...new Set((o.weeks||[]).concat(e.weeks||[]))].sort();if(!o.added||(e.added&&e.added<o.added))o.added=e.added;}else L[nk]=e;
+  delete L[k];ch=true;});
+ const add=(it,week,fromBox)=>{if(!it||!it.name)return;const k=yfMealKey(it);if(!k)return;
+  const info={name:yfBaseName(it.name),kcal:n0(it.kcal),protein:n0(it.protein),carbs:it.carbs==null?null:n0(it.carbs),fat:it.fat==null?null:n0(it.fat),
+   flag:it.flag||'',note:it.note||'',allergens:it.allergens||'',ingredients:it.ingredients||'',url:it.url||''};
+  const e=L[k];
+  if(!e){L[k]=Object.assign(info,{weeks:week?[week]:[],src:fromBox?(week||''):'',added:Date.now()});ch=true;return;}
+  if(week&&!(e.weeks||[]).includes(week)){e.weeks=(e.weeks||[]).concat(week).sort();ch=true;}
+  if(fromBox&&week&&String(week)>=String(e.src||'')){const diff=Object.keys(info).some(f=>e[f]!==info[f]);if(diff||e.src!==week){Object.assign(e,info,{src:week});ch=true;}}
+ };
+ YF_DELIVERIES.forEach(dl=>{if(dl.date>t)return;dl.items.forEach(it=>{if(!it.damaged||it.eaten)add(it,dl.week,true);});});
+ const box=S.meals.delivery;if(box&&Array.isArray(box.items))box.items.forEach(it=>{if(it&&(!it.damaged||it.eaten))add(it,it.leftover?null:box.week,!it.leftover);});
+ (S.meals.yfPast||[]).forEach(it=>{if(it&&!it.damaged)add(it,it.week||null,false);});
+ Object.keys(S.meals.log||{}).forEach(day=>{const arr=S.meals.log[day];if(Array.isArray(arr))arr.forEach(x=>{if(isYfLog(x))add(x,null,false);});});
+ return ch;
+}
+function yfLogCount(k){let n=0;
+ Object.keys(S.meals.log||{}).forEach(day=>{const arr=S.meals.log[day];if(Array.isArray(arr))arr.forEach(x=>{if(isYfLog(x)&&yfKey(x.name)===k)n++;});});
+ return n;}
+/** Log one serve of a library meal. If it's in this week's box and not ticked yet, tick the box item instead (no double entry). */
+function yfLibLog(k){
+ ensureMeals();const f=S.meals.yfLib[k];if(!f){toast('Meal missing');return;}
+ const day=mealDayKey();
+ const open=(S.meals.delivery.items||[]).filter(i=>i&&!i.damaged&&yfMealKey(i)===k&&!yfLogDays(i.id).length);
+ const boxIt=open.find(i=>i.leftover)||open[0]; // eat last week's leftover first
+ if(boxIt){toggleYoufoodz(boxIt.id,true);return;}
+ addFoodToLog({name:f.name+' (Youfoodz)',kcal:f.kcal,protein:f.protein,carbs:f.carbs,fat:f.fat,source:'youfoodz'},'✓ '+f.name+' → '+fmtKeyShort(day));
+}
+function yfLibRow(k){
+ const f=S.meals.yfLib[k];if(!f)return '';
+ const n=yfLogCount(k);
+ const sub=n0(f.kcal)+' kcal · '+n0(f.protein)+'g P'+(f.carbs!=null?' · '+n0(f.carbs)+'g C':'')+(f.fat!=null?' · '+n0(f.fat)+'g F':'')+(n?' · had '+n+'×':'');
+ return `<div class="favrow"><button type="button" class="btn favbtn" data-a="yfLibAdd" data-k="${esc(k)}"><span>+ ${esc(f.name)}</span><small>${esc(sub)}</small>${f.flag?`<small style="color:var(--wa)">⚠ ${esc(f.flag)}</small>`:''}</button>
+  <button type="button" class="btn sm favinfo" data-a="yfLibInfo" data-k="${esc(k)}" title="Macros / info" aria-label="Info">ⓘ</button></div>`;
+}
+function yfLibHtml(dayKey){
+ ensureMeals();if(syncYfLib()&&!loadBroken)save();
+ const keys=Object.keys(S.meals.yfLib||{}).sort((a,b)=>S.meals.yfLib[a].name.localeCompare(S.meals.yfLib[b].name));
+ if(!keys.length)return '';
+ return `<details class="card" id="yfLibBox" ${yfLibOpen?'open':''}><summary style="justify-content:space-between;width:100%"><b>🍱 My Youfoodz meals</b><span class="muted">${keys.length}</span></summary>
+  <div class="muted" style="margin:4px 0 8px">Every Youfoodz meal from your boxes. Tap to add 1 meal to <b>${esc(slotName(currentSlot()))}</b> on ${esc(fmtKeyShort(dayKey||mealDayKey()))} (ticks it in this week's box if it's there). Tap again for another. Remove with ✕ in the log.</div>
+  ${keys.map(yfLibRow).join('')}</details>`;
+}
+function yfLibInfoModal(k){
+ ensureMeals();const f=S.meals.yfLib[k];if(!f){toast('Meal not found');return;}
+ const fat=f.fat!=null?` · ${f.fat}g F`:'';
+ modal(`<div class="hrow"><h2 style="margin:0;flex:1">${esc(f.name)}</h2><button class="btn sm" data-a="closeModal">Close</button></div>
+  <div class="muted">Youfoodz${(f.weeks||[]).length?' · '+esc(f.weeks.map(w=>String(w).replace(/^\d{4}-/,'')).join(', ')):''} · had ${yfLogCount(k)}×</div>
+  <div class="card" style="margin-top:8px"><b>${n0(f.kcal)} kcal · ${n0(f.protein)}g P${f.carbs!=null?' · '+f.carbs+'g C':''}${fat}</b></div>
+  ${f.flag?`<div class="hint warn" style="margin-top:8px">⚠ ${esc(f.flag)}</div>`:''}${f.note?`<div class="muted" style="margin-top:8px">${esc(f.note)}</div>`:''}
+  ${f.allergens?`<div style="margin-top:10px"><div class="muted" style="font-size:12px">Allergens</div><b>${esc(f.allergens)}</b></div>`:''}
+  ${f.ingredients?`<div style="margin-top:10px"><div class="muted" style="font-size:12px">Ingredients</div><div style="white-space:pre-wrap">${esc(f.ingredients)}</div></div>`:''}
+  ${f.url?`<p style="margin-top:12px"><a style="color:var(--bl)" target="_blank" rel="noopener" href="${esc(f.url)}">Open on Youfoodz ↗</a></p>`:''}
+  <button class="btn primary wide" data-a="yfLibAdd" data-k="${esc(k)}" style="margin-top:12px">+ Add to ${esc(slotName(currentSlot()))}</button>`);
+}
+let mealDay=null,mealMonth=null,mealTab='plan',mealSlot=null,sugOpen=false,yfOpen=false,yfLibOpen=false; // plan | log
 const MEAL_SLOTS=[{id:'breakfast',label:'Breakfast'},{id:'lunch',label:'Lunch'},{id:'dinner',label:'Dinner'},{id:'snack',label:'Snacks'}];
 function defaultMealSlot(){
  const h=+new Intl.DateTimeFormat('en-AU',{timeZone:TZ,hour:'numeric',hourCycle:'h23'}).format(new Date());
@@ -1678,7 +1868,8 @@ function macroBar(tot,burn,foodKcal){
   <div class="mbar">${body}</div>${burn?`<div class="muted" style="margin-top:6px">Food ${Math.round(foodKcal)} kcal · cardio −${burn} kcal</div>`:''}${t.kcalNote&&!t.kcalManual?`<div class="muted" style="margin-top:6px">${esc(t.kcalNote)}</div>`:t.kcalManual?'<div class="muted" style="margin-top:6px">Custom calories. Pick a goal to use your stats again.</div>':''}</div>`;
 }
 function slotLabel(s){return ({breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snack:'Snack',treat:'Treat'}[s]||s||'Meal');}
-function findYf(id){ensureMeals();return (S.meals.delivery.items||[]).find(x=>x.id===id)||(S.meals.yfPast||[]).find(x=>x.id===id)||null;}
+function findYf(id){ensureMeals();let it=(S.meals.delivery.items||[]).find(x=>x.id===id)||(S.meals.yfPast||[]).find(x=>x.id===id)||null;
+ if(!it)YF_DELIVERIES.some(d=>(it=d.items.find(x=>x.id===id)||null));return it;}
 function findPlanItem(day,id){const d=dayPlan(day);return (d.items||[]).find(x=>x.id===id)||null;}
 function mealRecipeModal(kind,id,day){
  ensureMeals();
@@ -1703,15 +1894,15 @@ function vMeals(){
  ensureMeals();
  const k=mealDayKey(),del=S.meals.delivery,eaten=dayEatenTotals(k),burn=cardioKcal(k),tot=Object.assign({},eaten,{kcal:eaten.kcal-burn}),planTot=dayPlannedTotals(k),day=dayPlan(k);
  const st=del.status?` · ${esc(del.status)}`:'';
- let h=`<h1>Meals</h1><div class="muted">W40 · Youfoodz checklist + home suggestions · local only</div>`;
+ let h=`<h1>Meals</h1><div class="muted">${esc(String(del.week||'').replace(/^\d{4}-/,''))} · Youfoodz checklist + home suggestions · local only</div>`;
  // Delivery card — checklist, no day assignment
- const yfAvail=(del.items||[]).filter(i=>!i.damaged);
+ const yfAvail=(del.items||[]).filter(i=>!i.damaged&&!i.leftover);
  const yfDone=yfAvail.filter(i=>i.eaten).length;
  h+=`<details class="card hero" id="yfBox" ${yfOpen?'open':''}><summary style="justify-content:space-between;width:100%"><b>🍽️ Youfoodz this week</b><span class="muted">${yfDone}/${yfAvail.length} eaten</span></summary>
   <div class="muted" style="margin-top:4px">Delivery ${fmtKeyDate(del.date)} · ${esc(del.area||'')} · ${esc(del.week)}${st}. Tick when you eat one — macros go to <b>the selected day</b> below (not pre-assigned).</div>
-  <div class="hint up" style="margin-top:8px">${esc(YF_W41_NOTE)}</div>
+  ${yfNextNote()?`<div class="hint up" style="margin-top:8px">${esc(yfNextNote())}</div>`:''}
   <div style="margin-top:8px">${(del.items||[]).map(it=>{
-   const flag=it.flag?`<div class="hint warn" style="margin:4px 0 0">⚠ ${esc(it.flag)}</div>`:'';
+   const flag=(it.flag?`<div class="hint warn" style="margin:4px 0 0">⚠ ${esc(it.flag)}</div>`:'')+(it.leftover?`<div class="muted" style="margin:4px 0 0;font-size:12px">Leftover from last box — tick if you eat it</div>`:'');
    const dmg=it.damaged;
    const onDay=!dmg&&(S.meals.log[k]||[]).some(x=>x&&x.yfId===it.id);
    const days=yfDays(it.id);
@@ -1725,12 +1916,7 @@ function vMeals(){
     <button type="button" class="btn sm" data-a="mealRecipe" data-kind="yf" data-id="${esc(it.id)}" title="Recipe / info" aria-label="Recipe">ⓘ</button>
    </div>`;
   }).join('')}</div>
-  ${(()=>{const past=(S.meals.yfPast||[]).filter(p=>p&&p.id&&!(del.items||[]).some(i=>i.id===p.id));if(!past.length)return '';
-   return `<div class="muted" style="margin-top:10px"><b>Previous meals</b> · kept so you can log them again</div>`+past.map(it=>`<div class="hrow" style="align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
-    <span class="grow"><b>${esc(it.name)}</b><br><span class="muted">${it.kcal} kcal · ${it.protein}g P${it.carbs!=null?' · '+it.carbs+'g C':''}${it.fat!=null?' · '+it.fat+'g F':''}${it.week?' · '+esc(it.week):''}</span></span>
-    <button type="button" class="btn sm" data-a="mealRecipe" data-kind="yf" data-id="${esc(it.id)}" aria-label="Recipe">ⓘ</button>
-    <button type="button" class="btn sm primary" data-a="yfPastAdd" data-id="${esc(it.id)}">+ Log</button>
-   </div>`).join('');})()}
+  <div class="muted" style="margin-top:10px">Earlier boxes' meals are in <b>🍱 My Youfoodz meals</b> below — tap one to log it again.</div>
   </details>`;
 
  // Calendar — any date, not just the seeded 28 Sep–4 Oct plan week
@@ -1742,6 +1928,7 @@ function vMeals(){
  h+=macroBar(tot,burn,eaten.kcal);
  if(day.notes)h+=`<div class="hint up">${esc(day.notes)}</div>`;
  h+=favouritesRow(k);
+ h+=yfLibHtml(k);
 
  const logged=mealEntryRows(k);
  h+=`<h2>Logged ${fmtKeyShort(k)}</h2>`+renderSlotGroups(logged);
@@ -2027,7 +2214,7 @@ function applyYoufoodzDelivery(payload){
   status:payload.status||'',source:'manual',
   items:payload.items.map(it=>Object.assign({eaten:false},it,{eaten:!!it.eaten,eatenOn:it.eatenOn||null}))
  };
- save();toast('✓ Youfoodz '+payload.week+' loaded');render();
+ syncYfLib();save();toast('✓ Youfoodz '+payload.week+' loaded');render();
 }
 
 
