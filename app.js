@@ -381,7 +381,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6q</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6r</div>
  <div class="muted">Stored in this app icon: ${S.sessions.length} workout${S.sessions.length===1?'':'s'} · ${mealDayCount()} meal day${mealDayCount()===1?'':'s'}.${S.settings.lastBackupAt?' Last workout backup '+fmtDate(S.settings.lastBackupAt)+'.':''} A backup file is saved when you finish a workout.</div>
  ${S.sessions.length||mealDayCount()?'':`<div class="hint warn">This copy of the app has no saved workouts or meals. Open the same home-screen icon you used before. A browser tab or a second shortcut does not share that data. Settings → Import if you downloaded a backup.</div>`}
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
@@ -415,7 +415,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6q</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6r</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -1358,14 +1358,14 @@ const MEAL_FAVOURITES=[
   note:'McCafé Australia, large mocha with full cream milk (356 kcal / 1490 kJ). Skim or almond milk will be lower. Source: CalorieKing AU.',
   allergens:'milk'},
  {id:'fav-cevapi-7',
-  name:'Beef cevapi × 7',
+  name:'Homemade beef cevapi × 7',
   short:'Cevapi × 7',
-  label:'Beef cevapi · 7',
+  label:'Homemade cevapi · 7',
   button:'+ Cevapi × 7',
-  serving:'7 pieces (about 50 g each, 350 g)',
-  kcal:868,protein:70,carbs:12,fat:59,sodium:1820,
-  note:'Coles Beef Chevap label: 124 kcal, 10 g protein, 1.7 g carbs, 8.5 g fat per 50 g piece. ×7. BBQ sauce on the plate is not included (about 1 tbsp is ~35 kcal and 8 g carbs).',
-  allergens:'sulphites'}
+  serving:'7 pieces, about 40 g cooked each (280 g)',
+  kcal:710,protein:71,carbs:0,fat:45,sodium:420,
+  note:'Homemade beef mince, about 80/20, grilled. Estimated from the plate: 7 × 40 g cooked. 254 kcal, 25 g protein, 16 g fat per 100 g. Sauce not included.',
+  allergens:''}
 ];
 function favById(id){return MEAL_FAVOURITES.find(x=>x.id===id)||null;}
 function favToLibraryEntry(f){
@@ -1528,12 +1528,14 @@ function parkEatenYf(it){if(!it||it.parked||!it.eaten||it.damaged||!/^\d{4}-\d{2
  it.parked=1;}
 function seedCevapiToday(){
  if(!S.settings)S.settings={};
- if(S.settings.loggedCevapi1012)return;
+ if(S.settings.cevapiHome)return;
  if(!S.meals.log||typeof S.meals.log!=='object'||Array.isArray(S.meals.log))S.meals.log={};
  const k='2026-10-12';
  if(!Array.isArray(S.meals.log[k]))S.meals.log[k]=[];
- if(!S.meals.log[k].some(x=>x&&x.barcode==='fav-cevapi-7'))S.meals.log[k].push({id:'cevapi-2026-10-12',name:'Beef cevapi × 7',kcal:868,protein:70,carbs:12,fat:59,barcode:'fav-cevapi-7',t:Date.parse('2026-10-12T09:15:00+11:00'),source:'favourite',slot:'breakfast'});
- S.settings.loggedCevapi1012=1;
+ const next={id:'cevapi-2026-10-12',name:'Homemade beef cevapi × 7',kcal:710,protein:71,carbs:0,fat:45,barcode:'fav-cevapi-7',t:Date.parse('2026-10-12T09:15:00+11:00'),source:'favourite',slot:'breakfast'};
+ const row=S.meals.log[k].find(x=>x&&(x.barcode==='fav-cevapi-7'||x.id==='cevapi-2026-10-12'));
+ if(row)Object.assign(row,next);else S.meals.log[k].push(next);
+ S.settings.loggedCevapi1012=1;S.settings.cevapiHome=1;
  save();
 }
 function ensureMeals(){
