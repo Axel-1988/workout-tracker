@@ -381,7 +381,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6q · rest beeps, then the next set starts itself</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6r · rest beeps, then the next set starts itself</div>
  <div class="muted">Stored in this app icon: ${S.sessions.length} workout${S.sessions.length===1?'':'s'} · ${mealDayCount()} meal day${mealDayCount()===1?'':'s'}.${S.settings.lastBackupAt?' Last workout backup '+fmtDate(S.settings.lastBackupAt)+'.':''} A backup file is saved when you finish a workout.</div>
  ${S.sessions.length||mealDayCount()?'':`<div class="hint warn">This copy of the app has no saved workouts or meals. Open the same home-screen icon you used before. A browser tab or a second shortcut does not share that data. Settings → Import if you downloaded a backup.</div>`}
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
@@ -415,7 +415,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6q</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6r</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -1351,19 +1351,19 @@ const YF_W41_ITEMS=[
   ingredients:'chicken, sweet potato, broccoli, peas, mushrooms',
   note:'Lighter meal (only ~21g protein) — pair with a shake or Greek yoghurt. Sweet potato, not mash.',url:YF_W41_URL}
 ];
-/* W42 — delivery Wed 14 Oct 2026, Cecil Park 2178. Meal list from the My Deliveries check on 5 Oct (provisional until the box
- * is confirmed); macros for the two new meals from youfoodz.com recipe pages (Smokey BBQ = 300g regular, Burrito Bowl = FUEL'D chicken). */
+/* W42 — delivery Wed 14 Oct 2026, Cecil Park 2178. Confirmed from Youfoodz My Deliveries on 12 Oct (On its way / locked,
+ * qty 1 each); macros are the per-serving values listed there. */
 const YF_W42_URL='https://www.youfoodz.com/my-deliveries/2026-W42';
 const YF_W42_ITEMS=[
- {id:'w42-bbq',name:'Smokey BBQ Chicken — with Potato Salad',kcal:612,protein:31.9,carbs:31.9,fat:39.3,
+ {id:'w42-bbq',name:'Smokey BBQ Chicken — with Potato Salad',kcal:947,protein:44.4,carbs:39.3,fat:67.7,
   allergens:'egg, sulphites, milk, soy',
   ingredients:'potato (37%), chicken (32%), mayonnaise, hickory BBQ sauce, lemon juice, brown sugar, tomato paste, gravy powder, honey, Cajun seasoning, sriracha, chives, Dijon, garlic, butter, paprika',
-  note:'Chargrilled paprika chicken with creamy chive potato salad (not mash) and BBQ sauce. Only a little tomato paste in the BBQ sauce.',
+  note:'Chargrilled paprika chicken with creamy potato salad (Dijon, mayo, chives — not mash) and BBQ sauce. High fat (~68g) — make it the big meal of the day and keep other fats light. Only a little tomato paste in the BBQ sauce.',
   flag:'Contains tomato paste (BBQ sauce)',url:YF_W42_URL},
- {id:'w42-burrito',name:'Mexican Chicken Burrito Bowl',kcal:484,protein:42,carbs:50.2,fat:10.7,
+ {id:'w42-burrito',name:'Mexican Chicken Burrito Bowl',kcal:634,protein:46,carbs:38.9,fat:30.1,
   allergens:'gluten, wheat, milk',
   ingredients:'chicken (31%), basmati rice (23%), corn, black beans (10%), sour cream sachet, capsicum, onion, taco seasoning, cabbage, garlic, chia seeds, paprika, thyme, coriander',
-  note:'Chicken, coriander rice, black beans and sour cream. No tomato listed.',url:YF_W42_URL},
+  note:'FUEL\'D bowl: chicken, coriander rice, black beans and sour cream. No tomato listed.',url:YF_W42_URL},
  {id:'w42-alfredo',name:'Creamy Chicken Alfredo',kcal:626,protein:40.7,carbs:59.8,fat:23.6,
   ingredients:'cheese tortellini, chicken, cream, Parmesan, mushrooms',
   note:'Creamy tortellini with chicken and mushrooms.',url:YF_W42_URL},
@@ -1391,7 +1391,7 @@ const YF_DELIVERIES=[
  {week:'2026-W42',date:'2026-10-14',area:'Cecil Park 2178',status:'',items:YF_W42_ITEMS}
 ];
 /* Shown when no later box is in YF_DELIVERIES yet, only before `until`. Update with the Monday sync. */
-const YF_NEXT={until:'2026-10-22',text:'Next box Wed 21 Oct (W43) — its meals get added with the Monday sync.'};
+const YF_NEXT={until:'2026-10-22',text:'Next box Wed 21 Oct (W43, editable until Thu 15 Oct): Chicken Carbonara, Lebanese Chicken Shawarma, Spaghetti Bolognese, Butter Chicken, Chipotle Chicken Bites, Mexican Burrito Bowl.'};
 function yfSeedDelivery(today){const t=today||todayKey();let cur=YF_DELIVERIES[0];YF_DELIVERIES.forEach(d=>{if(d.date<=t&&String(d.week)>=String(cur.week))cur=d;});return cur;}
 function yfPrevWeek(week){let p=null;YF_DELIVERIES.forEach(d=>{if(String(d.week)<String(week)&&(!p||String(d.week)>p))p=String(d.week);});return p;}
 function yfNextNote(today){const t=today||todayKey(),up=YF_DELIVERIES.find(d=>d.date>t);
