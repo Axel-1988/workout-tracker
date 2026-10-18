@@ -381,7 +381,7 @@ function renderNav(){const tabs=[['train','🏋️','Train'],['mobility','🧘',
 // ---- HOME ----
 function vHome(){const sug=suggested(),sp=planById(sug),wd=wday(Date.now()),todays=SCHEDULE[wd];
  const bi=blockInfo();
- let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6s · rest beeps, then the next set starts itself</div>
+ let h=`<div class="hrow"><h1>Workout</h1><button class="btn sm" data-a="nav" data-v="settings" aria-label="Settings">⚙️ Settings</button></div><div class="muted">${fmtDate(Date.now())} · Pressing: stop if pain over 3/10 · 6t · rest beeps, then the next set starts itself</div>
  <div class="muted">Stored in this app icon: ${S.sessions.length} workout${S.sessions.length===1?'':'s'} · ${mealDayCount()} meal day${mealDayCount()===1?'':'s'}.${S.settings.lastBackupAt?' Last workout backup '+fmtDate(S.settings.lastBackupAt)+'.':''} A backup file is saved when you finish a workout.</div>
  ${S.sessions.length||mealDayCount()?'':`<div class="hint warn">This copy of the app has no saved workouts or meals. Open the same home-screen icon you used before. A browser tab or a second shortcut does not share that data. Settings → Import if you downloaded a backup.</div>`}
  <div class="blockbanner ${bi.deload?'deload':''}"><div class="hrow"><b>${esc(bi.label)}${bi.deload?' · DELOAD':''}</b><span class="muted">Accessories ${bi.letter}</span></div>
@@ -415,7 +415,7 @@ function vSession(){const s=S.active;if(!s){view='home';return vHome();}
  const sessSec=Math.floor((Date.now()-s.start)/1000);
  let h=`<div class="hrow"><h1>${esc(s.name)}</h1><button class="btn sm" data-a="home">‹ Home</button></div>
  <div class="sessclock"><span class="muted">Session</span><b id="sessElapsed">${fmtMMSS(sessSec)}</b></div>
- <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6s</div>
+ <div class="muted">${fmtDate(s.start)} · started ${fmtTime(s.start)} · ${nDone} sets done${s.blockLetter?` · Block ${s.blockLetter} W${s.blockWeek||''}`:''} · 6t</div>
  ${s.deload?`<div class="hint warn">Deload week — fewer sets programmed · keep weights ~90% of usual · stop short of failure</div>`:''}
  ${routineById(wu)?`<button class="btn sessbtn ${wp.complete?'':'hero'}" data-a="mobGo" data-r="${wu}" type="button"><span>🔥 ${esc(wu==='wuLower'?'Do Lower warm-up (Mobility)':'Do Upper warm-up (Mobility)')}<br><small>${wp.complete?'Warm-up done — open checklist ›':`Checklist &amp; timers · ${wp.n}/${wp.of} ›`}</small></span><small>›</small></button>`:''}`;
  if(!s.exercises.length)h+=`<div class="card muted">No exercises yet — add one below.</div>`;
@@ -1380,6 +1380,35 @@ const YF_W42_ITEMS=[
   ingredients:'spaghetti, beef ragu (crushed tomato, tomato paste, beef mince, onion, garlic, herbs), cheese',
   note:'Classic beef ragu — tomato-heavy.',flag:'Tomato-heavy (crushed tomato, tomato paste)',url:YF_W42_URL}
 ];
+/* W43 — delivery Wed 21 Oct 2026, Cecil Park 2178. Confirmed from Youfoodz My Deliveries on Mon 19 Oct (Protein Plus,
+ * On its way / locked, qty 1 each); macros are the per-serving values listed there. */
+const YF_W43_URL='https://www.youfoodz.com/my-deliveries/2026-W43';
+const YF_W43_ITEMS=[
+ {id:'w43-carbonara',name:'Chicken Carbonara — with Ham & Mushrooms',kcal:542,protein:41,carbs:54.4,fat:16.2,
+  allergens:'milk, gluten, wheat, egg',
+  ingredients:'fettuccine, chicken, ham, mushrooms, cream, Parmesan',
+  note:'Contains pork (ham).',flag:'Contains pork (ham)',url:YF_W43_URL},
+ {id:'w43-shawarma',name:'Lebanese Chicken Shawarma — with Roast Potatoes & Spicy Sour Cream',kcal:584,protein:50,carbs:42.7,fat:21.5,
+  allergens:'milk',
+  ingredients:'roast potatoes (52%), chicken shawarma, spicy sour cream, spices',
+  note:'Roast potatoes (not mash). Highest protein in the box (50g).',url:YF_W43_URL},
+ {id:'w43-bolognese',name:'Spaghetti Bolognese — with Classic Beef Ragu',kcal:626,protein:40.7,carbs:76.9,fat:15.7,
+  allergens:'gluten, wheat, milk (may contain)',
+  ingredients:'spaghetti, beef ragu (crushed tomato, tomato paste, beef mince, onion, garlic, herbs), cheese',
+  note:'Classic beef ragu — tomato-heavy.',flag:'Tomato-heavy (crushed tomato, tomato paste)',url:YF_W43_URL},
+ {id:'w43-butter',name:'Butter Chicken — with Naan & Brown Rice',kcal:871,protein:40.9,carbs:90.7,fat:36.4,
+  allergens:'milk, gluten, wheat',
+  ingredients:'brown rice (32%), coconut cream (22%), chicken (21%), naan bread (8%), water, sweet chilli sauce, marinade, garlic, milk powder, tomato paste, vegetable booster, curry powder, sweet paprika, modified starch, butter, vinegar powder, cumin, coriander, vinegar/cultured sugar',
+  note:'Mildly spiced creamy tomato-coconut sauce with naan and brown rice. Big meal (871 kcal) — keep the rest of that day lighter.',
+  flag:'Contains tomato paste',url:YF_W43_URL},
+ {id:'w43-chipotle',name:'Chipotle Chicken Bites',kcal:637,protein:40.6,carbs:56.1,fat:25.8,
+  ingredients:'potato (51%), chicken bites, chipotle seasoning/sauce',
+  note:'New meal. Potato (51%), not mash. No tomato, seafood or lamb listed. (Youfoodz list view says 639 kcal; the meal page says 637.)',url:YF_W43_URL},
+ {id:'w43-burrito',name:'Mexican Chicken Burrito Bowl',kcal:634,protein:46,carbs:38.9,fat:30.1,
+  allergens:'gluten, wheat, milk',
+  ingredients:'chicken (31%), basmati rice (23%), corn, black beans (10%), sour cream sachet, capsicum, onion, taco seasoning, cabbage, garlic, chia seeds, paprika, thyme, coriander',
+  note:'FUEL\'D bowl: chicken, coriander rice, black beans and sour cream. No tomato listed.',url:YF_W43_URL}
+];
 /* Weekly Youfoodz boxes, oldest → newest. The Monday sync APPENDS the next box here (never edit an old week's ids).
  * Item ids are per box ('w42-carbonara'); a meal seen in several boxes keeps the same name so "My Youfoodz meals"
  * shows it once. The app switches to a box automatically on its delivery date (Sydney time): the previous box's
@@ -1388,17 +1417,18 @@ const YF_W42_ITEMS=[
 const YF_DELIVERIES=[
  {week:'2026-W40',date:'2026-09-30',area:'Cecil Park 2178',status:'Delivered',items:YF_W40_ITEMS},
  {week:'2026-W41',date:'2026-10-07',area:'Cecil Park 2178',status:'Delivered',items:YF_W41_ITEMS},
- {week:'2026-W42',date:'2026-10-14',area:'Cecil Park 2178',status:'',items:YF_W42_ITEMS}
+ {week:'2026-W42',date:'2026-10-14',area:'Cecil Park 2178',status:'Delivered',items:YF_W42_ITEMS},
+ {week:'2026-W43',date:'2026-10-21',area:'Cecil Park 2178',status:'On its way',items:YF_W43_ITEMS}
 ];
 /* Shown when no later box is in YF_DELIVERIES yet, only before `until`. Update with the Monday sync. */
-const YF_NEXT={until:'2026-10-22',text:'Next box Wed 21 Oct (W43, editable until Thu 15 Oct): Chicken Carbonara, Lebanese Chicken Shawarma, Spaghetti Bolognese, Butter Chicken, Chipotle Chicken Bites, Mexican Burrito Bowl.'};
+const YF_NEXT={until:'2026-10-29',text:'Next box Wed 28 Oct (W44, editable until Thu 22 Oct): Smokey BBQ Chicken, Chicken Carbonara, Portuguese Chicken & Rice, Spaghetti Bolognese, Chipotle Chicken Bites, Butter Chicken. Then Wed 4 Nov (W45, editable until Thu 29 Oct): Chicken Pesto Pasta, Satay Chicken & Broccoli, Mexican Burrito Bowl, Smokey BBQ Chicken, Thai Green Curry Beef, Butter Chicken. ⚠ Thai Green Curry Beef has fish sauce + crustacean (seafood) — swap it before Thu 29 Oct.'};
 function yfSeedDelivery(today){const t=today||todayKey();let cur=YF_DELIVERIES[0];YF_DELIVERIES.forEach(d=>{if(d.date<=t&&String(d.week)>=String(cur.week))cur=d;});return cur;}
 function yfPrevWeek(week){let p=null;YF_DELIVERIES.forEach(d=>{if(String(d.week)<String(week)&&(!p||String(d.week)>p))p=String(d.week);});return p;}
 function yfNextNote(today){const t=today||todayKey(),up=YF_DELIVERIES.find(d=>d.date>t);
  if(up)return 'Next box '+fmtKeyDate(up.date)+' ('+up.week.replace(/^\d{4}-/,'')+') — this list switches to it automatically that day.';
  return t<YF_NEXT.until?YF_NEXT.text:'';}
 /* Home-suggestion plan weeks that exist in defaultMeals (Mondays). The latest one that has started is current. */
-const PLAN_WEEKS=['2026-09-28','2026-10-05','2026-10-12'];
+const PLAN_WEEKS=['2026-09-28','2026-10-05','2026-10-12','2026-10-19'];
 function planWeekFor(today){const t=today||todayKey();let w=PLAN_WEEKS[0];PLAN_WEEKS.forEach(k=>{if(k<=t)w=k;});return w;}
 
 function mkPlanItem(id,name,slot,kcal,protein,carbs,source,extra){
@@ -1607,6 +1637,16 @@ function defaultMeals(){
   '2026-10-16':'Work 8–6. Take a Youfoodz to work — Burrito Bowl or Smokey BBQ Chicken travel well.',
   '2026-10-17':'OFF · training day · higher carbs around training.',
   '2026-10-18':'OFF · finish remaining Youfoodz before next Wed delivery (21 Oct).'
+ });
+ // W43 plan week Mon 19 – Sun 25 Oct (built from the 28 Sep week: w43-m28-bf …)
+ shiftWeek('w43-',21,{
+  '2026-10-19':'Work 12–9 · late dinner. W43 Youfoodz arrive Wed — use up W42 meals first.',
+  '2026-10-20':'Work 8–6. Take a W42 Youfoodz to work if you still have one.',
+  '2026-10-21':'OFF · W43 Youfoodz delivery today (Cecil Park). Uneaten W42 meals show as "left from W42" — tick them when you eat them.',
+  '2026-10-22':'Work 12–9. Easy post-9pm heat-up: tick a Youfoodz (Shawarma, Carbonara, Burrito Bowl). Last day to edit the W44 box.',
+  '2026-10-23':'Work 8–6. Take a Youfoodz to work — Chipotle Chicken Bites or Burrito Bowl travel well.',
+  '2026-10-24':'OFF · training day · higher carbs around training (Butter Chicken fits here, 871 kcal).',
+  '2026-10-25':'OFF · finish remaining Youfoodz before next Wed delivery (28 Oct).'
  });
  const lib={};const favIds=[];
  MEAL_FAVOURITES.forEach(f=>{lib[f.id]=favToLibraryEntry(f);favIds.push(f.id);});
